@@ -1,0 +1,32 @@
+{
+  "name": "java-learning-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
+    "build": "tsc",
+    "start": "node --env-file-if-exists=.env dist/src/index.js",
+    "typecheck": "tsc --noEmit",
+    "db:up": "docker compose up -d --wait db",
+    "db:down": "docker compose down",
+    "db:migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts",
+    "db:seed": "tsx --env-file-if-exists=.env scripts/seed.ts",
+    "db:reset": "docker compose down -v && docker compose up -d --wait db && npm run db:migrate && npm run db:seed",
+    "db:psql": "docker compose exec db psql -U app -d java_learning",
+    "user:create": "tsx --env-file-if-exists=.env scripts/create-user.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.5",
+    "argon2": "^0.45.1",
+    "hono": "^4.13.13",
+    "pg": "^8.23.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
