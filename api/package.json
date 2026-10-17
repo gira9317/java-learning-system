@@ -16,8 +16,7 @@
     "db:psql": "docker compose exec db psql -U app -d java_learning",
     "user:create": "tsx --env-file-if-exists=.env scripts/create-user.ts",
     "content:import": "tsx --env-file-if-exists=.env scripts/import-lectures.ts",
-    "content:supplements": "tsx --env-file-if-exists=.env scripts/update-lecture-supplements.ts",
-    "content:check": "tsx --env-file-if-exists=.env scripts/check-lecture-supplements.ts"
+    "content:check": "tsx --env-file-if-exists=.env scripts/check-lectures.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",

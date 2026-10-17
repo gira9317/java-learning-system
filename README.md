@@ -55,7 +55,7 @@ java-learning-system/
 │  ├─ src/lib/              採点・進捗・教材読み込みなど
 │  ├─ db/migrations/        DBスキーマの変更履歴
 │  ├─ scripts/              初期化・教材取り込み・検証
-│  ├─ content/lectures/     講義MD・導入・小テスト・Optionの元データ
+│  ├─ content/lectures/     講義の本文・導入・小テスト・OptionをまとめたMD
 │  └─ content/lessons/      演習教材MD・問題文・採点用テスト
 ├─ runner/                  JavaをDocker内でコンパイル・実行
 └─ compose.yaml             デモ用に全サービスを起動
@@ -267,18 +267,16 @@ title: DBに登録された講義名
 | --- | --- |
 | `npm run content:import` | DBで資料が未登録の講義だけ、MDから取り込む |
 | `npm run content:import -- --force` | 既存資料もMDで上書きする。管理画面での編集も置き換わる |
-| `npm run content:supplements` | 導入・小テスト・Optionを、元JSONからMDとDBへ反映する |
 
 動画URLと資料は管理画面からも編集できます。講義の目次はDBで管理するため、新しい講義を増やす場合はマイグレーションで`lecture_chapters`・`lectures`へ項目を登録し、対応するMDを追加してください。
 
 ### 講義の導入・4択小テスト・Option
 
-- `beginner-guides*.json`：導入文、用語・意味・具体例の4組、応用の4択問題を定義します。
-- `supplements*.json`：任意のOptionコラムを定義します。
+- **講義はMDだけで管理します。** 導入・本文・選択肢・正解・解説・Optionを、対応する1つのMDに直接記載します。
 - 小テストは各講義5問。基本の確認4問と、少し応用した1問です。
 - 詳しい本文とOptionは折りたたみ、初心者向けの導入から読める表示です。
 
-生成対象のマーカー内をMDで直接修正すると、次の生成で上書きされます。導入・小テスト・OptionはJSONを編集して`npm run content:supplements`を実行してください。この処理はマーカー外の本文を保持し、DB更新前の資料を`api/.tmp/lecture-backups/`へ保存します。
+HTMLコメントのマーカーと見出しは画面が導入・小テスト・Optionを分けるための書式です。生成処理はなく、マーカー内もMDで直接編集します。編集後は`api/`で`npm run content:import -- --force`を実行し、`npm run content:check`でMDとDBの一致、小テストの構造、画面表示を確認します。`--force`は管理画面だけで編集した内容も上書きするので、残す内容は先にMDへ反映してください。
 
 詳しくは[講義教材のREADME](api/content/lectures/README.md)を参照してください。
 
@@ -357,7 +355,7 @@ docker compose exec -T db pg_dump -U app -d java_learning -Fc -f /tmp/java-learn
 docker compose cp db:/tmp/java-learning.dump ./java-learning.dump
 ```
 
-バックアップにはアカウント・提出などが含まれるため、Gitへ追加せず管理してください。`content:supplements`が作る資料のJSONバックアップは、DB全体のバックアップではありません。
+バックアップにはアカウント・提出などが含まれるため、Gitへ追加せず管理してください。教材の変更履歴はGitで管理し、DBのバックアップとは分けて扱います。
 
 ### データを初期化するとき
 
@@ -401,7 +399,7 @@ node --env-file-if-exists=.env --import tsx scripts/check-bootstrap.ts
 
 Javaの検証は本当にコンテナでコンパイル・実行するため、数分かかります。検証用ユーザーは終了処理で削除します。既存受講者の提出・進捗は変更しません。
 
-`content:check`はローカルに資料バックアップがあれば変更前の資料との比較も行います。バックアップがない新規環境ではその比較だけをスキップし、教材の構造・DBとの一致・表示・本文保持の規則は検証します。`check-bootstrap.ts`はDBへのスキーマ作成権限が必要で、検証した一時スキーマは終了時に削除します。
+`content:check`は講義MDを正本として、DBに取り込まれた本文の一致、導入・4択小テスト・Optionの構造、講義ページの表示を検証します。`check-bootstrap.ts`はDBへのスキーマ作成権限が必要で、検証した一時スキーマは終了時に削除します。
 
 ### ビルド
 
@@ -479,7 +477,7 @@ Javaコンテナはネットワークなし、メモリ256MB、CPU 1、プロセ
 
 - 演習資料：内部Lesson IDに対応するMDと、front matterのタイトルを確認します。タイトル不一致はAPIエラーになります。
 - 講義資料：DBへの取り込みが必要です。既存の資料は通常の`content:import`では更新されません。
-- 小テスト・Option：JSONを編集した後、`npm run content:supplements`を実行します。
+- 小テスト・Option：本文と同じMDを編集し、`npm run content:import -- --force`で反映します。
 - Docker：ソース変更は自動反映されないため、対象イメージを再ビルドします。
 
 ### Javaの実行・採点だけ失敗する
