@@ -1,73 +1,52 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { getCatalog, getLessons } from "@/api/lessons-api";
 import { GlobalNav } from "@/components/global-nav";
-import { LockIcon } from "@/components/icons";
-import { LearningWorkspace } from "@/components/workspace/learning-workspace";
-import { pad, type Lesson } from "@/lib/lessons";
-import { getCookieHeader, requireUser } from "@/lib/session";
-
-/** URL の [id] をレッスン ID（正の整数）にする。不正なら null */
-function parseLessonId(raw: string) {
-  const id = Number(raw);
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
+import { ChevronRightIcon } from "@/components/icons";
+import { LessonHeader } from "@/components/workspace/lesson-header";
+import { LessonMaterial } from "@/components/workspace/lesson-material";
+import { LockedLesson } from "@/components/workspace/locked-lesson";
+import { StageStep } from "@/components/workspace/stage-step";
+import { lessonTitle, loadLesson } from "@/lib/lesson-page";
 
 export async function generateMetadata({ params }: PageProps<"/lessons/[id]">) {
-  const id = parseLessonId((await params).id);
-  const lesson = id ? (await getCatalog()).find((l) => l.id === id) : undefined;
-  return { title: lesson ? `Lesson ${pad(lesson.id)} ${lesson.title} — Java Training` : "Java Training" };
+  return { title: await lessonTitle((await params).id, "教材") };
 }
 
-// 進捗はユーザーごとに変わるため、リクエスト時に API から読む。
-export default function LessonPage({ params }: PageProps<"/lessons/[id]">) {
+// コード演習の「教材」ページ。教材を読んでから「演習」ページへ進む
+export default function LessonMaterialPage({ params }: PageProps<"/lessons/[id]">) {
   return (
     <>
       <GlobalNav />
       <Suspense fallback={<div className="h-[calc(100dvh-44px)] bg-parchment" />}>
-        <LessonContent params={params} />
+        <MaterialContent params={params} />
       </Suspense>
     </>
   );
 }
 
-async function LessonContent({ params }: Pick<PageProps<"/lessons/[id]">, "params">) {
-  const id = parseLessonId((await params).id);
-  if (!id) notFound();
+async function MaterialContent({ params }: Pick<PageProps<"/lessons/[id]">, "params">) {
+  const { lesson, lessons, current, submissions } = await loadLesson((await params).id);
+  if (!submissions) return <LockedLesson lesson={lesson} current={current} />;
 
-  await requireUser();
-  const lessons = await getLessons({ cookie: await getCookieHeader() });
-  const lesson = lessons.find((l) => l.id === id);
-  if (!lesson) notFound();
-
-  if (lesson.status === "locked") return <LockedLesson lesson={lesson} current={lessons.find((l) => l.status === "in-progress")} />;
-  return <LearningWorkspace lesson={lesson} lessons={lessons} />;
-}
-
-function LockedLesson({ lesson, current }: { lesson: Lesson; current?: Lesson }) {
   return (
-    <main className="grid flex-1 place-items-center bg-parchment px-4 py-20 text-center">
-      <div>
-        <span className="mx-auto grid size-14 place-items-center rounded-full bg-canvas text-ink-muted-48">
-          <LockIcon size={24} />
-        </span>
-        <p className="type-caption-strong mt-6 text-ink-muted-48">Lesson {pad(lesson.id)}</p>
-        <h1 className="type-display-lg mt-1">{lesson.title}</h1>
-        <p className="type-body mx-auto mt-4 max-w-[36ch] text-ink-muted-80">
-          このレッスンは、前のレッスンを完了すると解放されます。
-        </p>
-        <div className="mt-8 flex flex-wrap justify-center gap-4">
-          {current && (
-            <Link href={`/lessons/${current.id}`} className="btn btn-primary btn-primary-lg">
-              Lesson {pad(current.id)} を続ける
-            </Link>
-          )}
-          <Link href="/home#curriculum" className="btn btn-secondary btn-secondary-lg">
-            カリキュラムへ戻る
-          </Link>
-        </div>
+    <div className="flex h-[calc(100dvh-44px)] min-h-0 flex-none flex-col">
+      <LessonHeader lesson={lesson} lessons={lessons} active="material" />
+
+      <div className="min-h-0 flex-1 overflow-y-auto bg-canvas">
+        <LessonMaterial lesson={lesson} />
       </div>
-    </main>
+
+      <div className="frosted z-20 flex shrink-0 items-center justify-between gap-4 border-t border-black/[0.08] px-4 py-2.5 sm:min-h-16 sm:px-8 sm:py-3">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-6" aria-label="提出の状況">
+          <span className="hidden type-caption-strong text-ink-muted-80 sm:inline">演習の状況</span>
+          <StageStep label="フロー図" status={submissions.flow.status} />
+          <StageStep label="コード" status={submissions.code.status} />
+        </div>
+        <Link href={`/lessons/${lesson.id}/exercise`} className="btn btn-primary btn-primary-lg">
+          演習に進む
+          <ChevronRightIcon size={16} />
+        </Link>
+      </div>
+    </div>
   );
 }

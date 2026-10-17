@@ -5,7 +5,8 @@ const columns = [
     title: "学習",
     links: [
       { href: "/home", label: "ホーム" },
-      { href: "/home#curriculum", label: "カリキュラム" },
+      { href: "/lectures", label: "講義" },
+      { href: "/home#curriculum", label: "コード演習" },
       { href: "/lessons/3", label: "学習を再開" },
     ],
   },
@@ -25,7 +26,7 @@ export function SiteFooter() {
     <footer className="bg-parchment px-4 pt-10 pb-10 text-ink-muted-80 sm:px-6 sm:pt-12">
       <div className="mx-auto max-w-[1080px]">
         <p className="type-fine border-b border-hairline pb-4 text-ink-muted-48">
-          レッスンの完了状況はサーバーに保存されます。コードとフローチャートはまだ保存されません（MVP）。
+          学習の進み具合と、演習のフロー図・コード（作業途中の下書きを含む）はサーバーに保存されます。
         </p>
         <div className="grid gap-x-10 py-4 sm:grid-cols-2 md:grid-cols-4">
           {columns.map((col) => (

@@ -19,9 +19,11 @@ export type RequestOptions = {
   body?: unknown;
   /** Server Component から呼ぶときに、受け取ったリクエストの Cookie ヘッダーを渡す */
   cookie?: string;
+  /** ページを離れる瞬間でも送り切る（下書きの保存などで使う） */
+  keepalive?: boolean;
 };
 
-export async function request<T>(path: string, { method = "GET", body, cookie }: RequestOptions = {}): Promise<T> {
+export async function request<T>(path: string, { method = "GET", body, cookie, keepalive }: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (cookie) headers.cookie = cookie;
@@ -31,6 +33,7 @@ export async function request<T>(path: string, { method = "GET", body, cookie }:
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
+    keepalive,
   });
 
   const json = await response.json().catch(() => null);

@@ -65,45 +65,61 @@ function IfStatementMaterial() {
         のラベルをつけましょう。
       </Callout>
 
-      <H2>演習</H2>
-      <P>
-        コマンドライン引数で受け取った点数 <Code>score</Code> が 60 点以上なら「合格」、 60
-        点未満なら「不合格」と表示するプログラムを作成してください。
-      </P>
-      <ol className="mt-4 space-y-3">
-        {[
-          "フロー図ペインで、処理の流れを設計する",
-          "Javaコードペインで、プログラムを完成させて実行する",
-          "それぞれ「採点する」を押して結果を確認する",
-        ].map((text, i) => (
-          <li key={text} className="flex gap-3 type-body">
-            <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-parchment type-caption-strong">
-              {i + 1}
-            </span>
-            {text}
-          </li>
-        ))}
-      </ol>
-
-      <h3 className="type-caption-strong mt-8 text-ink-muted-80">採点で使うテストケース</h3>
-      <ul className="mt-3 divide-y divide-hairline rounded-lg border border-hairline type-caption">
-        {[
-          ["80", "合格"],
-          ["60", "合格（境界値）"],
-          ["59", "不合格"],
-        ].map(([input, expected]) => (
-          <li key={input} className="flex justify-between px-4 py-2.5">
-            <span className="text-ink-muted-80">
-              入力 <span className="font-mono text-ink">{input}</span>
-            </span>
-            <span>
-              期待する出力 <span className="font-semibold">{expected}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
       <div className="h-8" />
     </>
+  );
+}
+
+/**
+ * 演習の問題文とテストケース（演習ページの上部に表示する）。
+ * 教材と同じく、Markdown 化した演習データを API から配るようになるまでは Lesson 03 だけ用意している。
+ */
+export function ProblemStatement({ lesson }: { lesson: Lesson }) {
+  if (lesson.id !== 3) {
+    return <p className="type-caption text-ink-muted-80">このレッスンの問題文は準備中です。</p>;
+  }
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="type-body">
+          コマンドライン引数で受け取った点数 <Code>score</Code> が 60 点以上なら「合格」、60
+          点未満なら「不合格」と表示するプログラムを作成してください。
+        </p>
+        <ol className="mt-3 space-y-2">
+          {[
+            "「フロー図」で処理の流れを設計し、「採点する」で確認してから提出する",
+            "フロー図が承認されたら、「コード」でプログラムを完成させ、「実行」「採点する」で確認してから提出する",
+          ].map((text, i) => (
+            <li key={text} className="flex gap-3 type-caption">
+              <span className="grid size-5 shrink-0 place-items-center rounded-full bg-parchment type-fine font-semibold">
+                {i + 1}
+              </span>
+              {text}
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div>
+        <h3 className="type-caption-strong text-ink-muted-80">採点で使うテストケース</h3>
+        <ul className="mt-2 divide-y divide-hairline rounded-lg border border-hairline type-caption">
+          {[
+            ["80", "合格"],
+            ["60", "合格（境界値）"],
+            ["59", "不合格"],
+          ].map(([input, expected]) => (
+            <li key={input} className="flex justify-between gap-4 px-4 py-2">
+              <span className="text-ink-muted-80">
+                入力 <span className="font-mono text-ink">{input}</span>
+              </span>
+              <span>
+                期待する出力 <span className="font-semibold">{expected}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }
 

@@ -4,7 +4,7 @@ import type { Role } from "../types/auth.js";
 
 /**
  * アカウントを発行する（研修担当者が使う。scripts/create-user.ts と seed から呼ぶ）。
- * 初期パスワードで作り、初回サインイン時に変更を必須にする。最初のレッスンは解放しておく。
+ * 初期パスワードで作り、初回サインイン時に変更を必須にする。受講者は最初のレッスンを解放しておく。
  */
 export async function createAccount(input: { employeeNo: string; name: string; password: string; role: Role }) {
   const employeeNo = input.employeeNo.trim().toUpperCase();
@@ -23,16 +23,19 @@ export async function createAccount(input: { employeeNo: string; name: string; p
     );
     const user = result.rows[0];
 
-    await client.query(
-      `
-      INSERT INTO lesson_progress (user_id, lesson_id, status)
-      SELECT $1, id, 'in-progress'
-      FROM lessons
-      ORDER BY sort_order
-      LIMIT 1
-      `,
-      [user.id],
-    );
+    // 管理者は学習しないので、進捗は作らない
+    if (input.role === "user") {
+      await client.query(
+        `
+        INSERT INTO lesson_progress (user_id, lesson_id, status)
+        SELECT $1, id, 'in-progress'
+        FROM lessons
+        ORDER BY sort_order
+        LIMIT 1
+        `,
+        [user.id],
+      );
+    }
 
     await client.query("COMMIT");
     return user as { id: string; employee_no: string; name: string; role: Role };

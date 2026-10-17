@@ -1,0 +1,59 @@
+# デモ用：DB・API・画面をまとめて起動する（研修担当者に見てもらうとき）
+#   docker compose up --build
+#   → http://localhost:3000
+# 開発するときは、これまでどおり api/ と web/ で npm run dev を使う（DB は api/compose.yaml）。
+name: java-learning-demo
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: java_learning
+      TZ: Asia/Tokyo
+    volumes:
+      - demo-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d java_learning"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./api
+    restart: unless-stopped
+    environment:
+      PORT: "4000"
+      DATABASE_URL: postgresql://app:app@db:5432/java_learning
+      # ブラウザで開く画面の URL（CSRF 対策で照合する）。ポートを変えたら合わせる
+      WEB_ORIGIN: http://localhost:${WEB_PORT:-3000}
+      # HTTPS なしで見るため、クッキーの Secure は付けない
+      COOKIE_SECURE: "false"
+      SEED_INITIAL_PASSWORD: initial-pass
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  web:
+    build:
+      context: ./web
+      args:
+        API_URL: http://api:4000
+    restart: unless-stopped
+    environment:
+      API_URL: http://api:4000
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  demo-db:

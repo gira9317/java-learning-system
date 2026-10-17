@@ -33,7 +33,7 @@ const steps = [
   {
     icon: SparkIcon,
     title: "確かめる",
-    body: "テストケースとルールでコードと図を自動採点します。",
+    body: "自動採点で確かめてから提出し、研修担当者のレビューを受けます。",
   },
 ];
 
@@ -84,7 +84,7 @@ export default function MarketingPage() {
               4つのステップ。
             </h2>
             <p className="type-body mx-auto mt-4 max-w-[46ch] text-center text-body-muted">
-              採点結果と学習の完了は別々に扱われます。満点でなくても、自分のペースで次へ進めます。
+              フロー図が承認されるとコードを提出でき、両方が承認されると次のレッスンに進めます。
             </p>
             <ol className="mt-10 grid gap-px overflow-hidden rounded-lg bg-white/10 sm:mt-14 sm:grid-cols-2 lg:grid-cols-4">
               {steps.map((step, i) => (

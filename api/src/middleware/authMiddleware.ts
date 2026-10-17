@@ -53,3 +53,11 @@ export const requirePasswordChanged = createMiddleware<AppEnv>(async (c, next) =
   }
   await next();
 });
+
+/** 管理者（研修担当者）だけを通す。authMiddleware・requirePasswordChanged の後に付ける */
+export const requireAdmin = createMiddleware<AppEnv>(async (c, next) => {
+  if (c.get("user").role !== "admin") {
+    return c.json({ message: "この操作は研修担当者のみ行えます" }, 403);
+  }
+  await next();
+});

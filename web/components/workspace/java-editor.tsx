@@ -1,10 +1,10 @@
 "use client";
 
-import { Fragment, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 /*
- * Monaco Editor を導入するまでの軽量エディタ。
- * 透明な textarea をハイライト済みの <pre> に重ねて、入力とシンタックスハイライトを両立する。
+ * 管理画面で提出されたコードを表示するための、軽量なシンタックスハイライト。
+ * （受講者が書くエディタは monaco-java-editor.tsx の Monaco Editor）
  */
 
 const KEYWORDS = new Set([
@@ -35,52 +35,19 @@ function highlight(code: string): ReactNode[] {
   return out;
 }
 
-export function JavaEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-  const lineCount = value.split("\n").length;
-
-  function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key !== "Tab") return;
-    e.preventDefault();
-    const el = e.currentTarget;
-    const { selectionStart: s, selectionEnd: end } = el;
-    onChange(value.slice(0, s) + "    " + value.slice(end));
-    requestAnimationFrame(() => {
-      ref.current?.setSelectionRange(s + 4, s + 4);
-    });
-  }
-
-  const textStyle = "font-mono text-[13.5px] leading-[1.75] tracking-normal whitespace-pre";
-
+/** 提出されたコードの読み取り専用の表示（管理画面のレビュー用） */
+export function CodeView({ code }: { code: string }) {
+  const lines = code.split("\n");
+  const textStyle = "font-mono text-[13px] leading-[1.75] tracking-normal whitespace-pre";
   return (
-    <div className="min-h-0 flex-1 overflow-auto bg-tile-3">
-      <div className="flex min-h-full w-max min-w-full">
-        <div
-          className={`sticky left-0 z-10 shrink-0 select-none bg-tile-3 py-4 pr-4 pl-4 text-right text-white/25 ${textStyle}`}
-          aria-hidden
-        >
-          {Array.from({ length: lineCount }, (_, i) => (
+    <div className="overflow-auto rounded-sm bg-tile-3">
+      <div className="flex w-max min-w-full">
+        <div className={`shrink-0 select-none py-4 pr-4 pl-4 text-right text-white/25 ${textStyle}`} aria-hidden>
+          {lines.map((_, i) => (
             <div key={i}>{i + 1}</div>
           ))}
         </div>
-        <div className="relative flex-1">
-          <pre className={`py-4 pr-8 text-white/90 ${textStyle}`} aria-hidden>
-            {highlight(value)}
-            {"\n"}
-          </pre>
-          <textarea
-            ref={ref}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={onKeyDown}
-            spellCheck={false}
-            autoCapitalize="off"
-            autoComplete="off"
-            wrap="off"
-            aria-label="Javaコード"
-            className={`absolute inset-0 resize-none overflow-hidden bg-transparent py-4 pr-8 text-transparent caret-white outline-none selection:bg-primary-on-dark/35 ${textStyle}`}
-          />
-        </div>
+        <pre className={`flex-1 py-4 pr-8 text-white/90 ${textStyle}`}>{highlight(code)}</pre>
       </div>
     </div>
   );

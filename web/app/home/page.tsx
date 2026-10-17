@@ -2,18 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { GlobalNav } from "@/components/global-nav";
-import { BookIcon, CheckIcon, ChevronRightIcon, CodeIcon, FlowIcon, LockIcon } from "@/components/icons";
+import { CheckIcon, ChevronRightIcon, CodeIcon, FlowIcon, LockIcon } from "@/components/icons";
 import { SiteFooter } from "@/components/site-footer";
 import { StatusChip } from "@/components/status-chip";
 import { getLessons } from "@/api/lessons-api";
-import { getCookieHeader, requireUser } from "@/lib/session";
+import { getLessonSubmissions, type LessonSubmissions, type StageStatus } from "@/api/submissions-api";
+import { getCookieHeader, requireLearner } from "@/lib/session";
 import { pad, type Lesson } from "@/lib/lessons";
 
 export const metadata: Metadata = {
   title: "ホーム — Java Training",
 };
 
-// 受講者のホーム。「続きから」→ 進み具合 → カリキュラムの順で、スマホで縦に読み下せる構成。
+// 受講者のホーム。「続きから」→ 進み具合 → コード演習の順で、スマホで縦に読み下せる構成。
 export default function HomePage() {
   return (
     <>
@@ -46,18 +47,20 @@ function HomeSkeleton() {
 }
 
 async function HomeContent() {
-  await requireUser();
-  const lessons = await getLessons({ cookie: await getCookieHeader() });
+  await requireLearner();
+  const cookie = await getCookieHeader();
+  const lessons = await getLessons({ cookie });
   const completed = lessons.filter((l) => l.status === "completed");
   const current = lessons.find((l) => l.status === "in-progress");
   const nextLocked = lessons.find((l) => l.status === "locked");
   const studiedMinutes = completed.reduce((sum, l) => sum + l.minutes, 0);
   const total = lessons.length;
+  const currentSubmissions = current ? await getLessonSubmissions(current.id, { cookie }) : null;
 
   return (
     <>
       <div className="mt-8 grid gap-4 lg:grid-cols-[1.6fr_1fr] lg:gap-5">
-        {current && <ContinueCard lesson={current} />}
+        {current && currentSubmissions && <ContinueCard lesson={current} submissions={currentSubmissions} />}
 
         {/* 進み具合 */}
         <section className="rounded-lg border border-hairline bg-canvas p-6" aria-labelledby="progress-heading">
@@ -95,11 +98,11 @@ async function HomeContent() {
         </section>
       </div>
 
-      {/* カリキュラム */}
+      {/* コード演習 */}
       <section id="curriculum" className="mt-14 scroll-mt-14 sm:mt-16" aria-labelledby="curriculum-heading">
         <div className="flex items-baseline justify-between gap-4">
           <h2 id="curriculum-heading" className="type-display-md">
-            カリキュラム
+            コード演習
           </h2>
           <span className="type-caption text-ink-muted-48">全{total}レッスン</span>
         </div>
@@ -115,13 +118,20 @@ async function HomeContent() {
   );
 }
 
-function ContinueCard({ lesson }: { lesson: Lesson }) {
-  // レッスン内の 3 つの作業の状態（モック）
+const stageText: Record<StageStatus, string> = {
+  none: "未提出",
+  pending: "レビュー待ち",
+  approved: "承認済み",
+  rejected: "要再提出",
+};
+
+function ContinueCard({ lesson, submissions }: { lesson: Lesson; submissions: LessonSubmissions }) {
+  // フロー図 → コードの順に提出し、それぞれ研修担当者の承認を受ける
   const tasks = [
-    { icon: BookIcon, label: "教材", done: true },
-    { icon: FlowIcon, label: "フロー図", done: false },
-    { icon: CodeIcon, label: "Javaコード", done: false },
+    { icon: FlowIcon, label: "フロー図", status: submissions.flow.status },
+    { icon: CodeIcon, label: "Javaコード", status: submissions.code.status },
   ];
+  const rejected = [submissions.latest.flow, submissions.latest.code].find((s) => s?.status === "rejected");
 
   return (
     <section className="on-dark flex flex-col rounded-lg bg-tile-1 p-6 text-white sm:p-8" aria-labelledby="continue-heading">
@@ -131,21 +141,30 @@ function ContinueCard({ lesson }: { lesson: Lesson }) {
       </h2>
       <p className="type-body mt-2 text-body-muted">{lesson.summary}</p>
 
-      <ul className="mt-6 grid grid-cols-3 gap-2">
+      <ul className="mt-6 grid grid-cols-2 gap-2">
         {tasks.map((task) => (
           <li key={task.label} className="rounded-sm bg-white/[0.06] px-3 py-3">
             <div className="flex items-center justify-between text-body-muted">
               <task.icon size={18} />
-              {task.done && (
+              {task.status === "approved" && (
                 <span className="grid size-[18px] place-items-center rounded-full bg-white text-ink">
                   <CheckIcon size={11} strokeWidth={3} />
                 </span>
               )}
             </div>
-            <p className={`type-caption mt-3 ${task.done ? "text-white" : "text-body-muted"}`}>{task.label}</p>
+            <p className={`type-caption mt-3 ${task.status === "approved" ? "text-white" : "text-body-muted"}`}>{task.label}</p>
+            <p className={`type-fine mt-0.5 ${task.status === "rejected" ? "text-[#ff6961]" : "text-body-muted"}`}>
+              {stageText[task.status]}
+            </p>
           </li>
         ))}
       </ul>
+
+      {rejected && (
+        <p className="mt-4 rounded-sm bg-white/[0.06] px-4 py-3 type-caption text-white/85">
+          <span className="font-semibold">差し戻しコメント：</span>「{rejected.review_comment}」
+        </p>
+      )}
 
       <div className="mt-8 flex flex-col gap-3 sm:mt-auto sm:flex-row sm:items-center sm:justify-between sm:pt-8">
         <span className="type-caption text-body-muted">約 {lesson.minutes} 分</span>

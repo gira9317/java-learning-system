@@ -4,9 +4,11 @@
  * テーブルを変えるときは、既存のファイルは書き換えず、0002_xxx.sql のように新しいファイルを足す。
  */
 import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { pool } from "../src/db.js";
 
-const dir = new URL("../db/migrations/", import.meta.url);
+// api/ で実行する（npm run db:migrate でも、Docker の起動時でも）
+const dir = join(process.cwd(), "db", "migrations");
 
 await pool.query(`
   CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -24,7 +26,7 @@ for (const file of files) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await client.query(await readFile(new URL(file, dir), "utf8"));
+    await client.query(await readFile(join(dir, file), "utf8"));
     await client.query(`INSERT INTO schema_migrations (name) VALUES ($1)`, [file]);
     await client.query("COMMIT");
     console.log(`applied: ${file}`);

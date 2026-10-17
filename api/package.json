@@ -12,9 +12,10 @@
     "db:down": "docker compose down",
     "db:migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts",
     "db:seed": "tsx --env-file-if-exists=.env scripts/seed.ts",
-    "db:reset": "docker compose down -v && docker compose up -d --wait db && npm run db:migrate && npm run db:seed",
+    "db:reset": "docker compose down -v && docker compose up -d --wait db && npm run db:migrate && npm run db:seed && npm run content:import",
     "db:psql": "docker compose exec db psql -U app -d java_learning",
-    "user:create": "tsx --env-file-if-exists=.env scripts/create-user.ts"
+    "user:create": "tsx --env-file-if-exists=.env scripts/create-user.ts",
+    "content:import": "tsx --env-file-if-exists=.env scripts/import-lectures.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",

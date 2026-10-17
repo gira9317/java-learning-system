@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { getAdminSummary } from "@/api/admin-api";
 import { getMe, logout, type User } from "@/api/auth-api";
 import { CupIcon } from "./icons";
 
-type Variant = "marketing" | "app" | "minimal";
+type Variant = "marketing" | "app" | "admin" | "minimal";
 
 const links: Record<Variant, { href: string; label: string }[]> = {
   marketing: [
@@ -16,37 +16,58 @@ const links: Record<Variant, { href: string; label: string }[]> = {
   ],
   app: [
     { href: "/home", label: "ホーム" },
-    { href: "/home#curriculum", label: "カリキュラム" },
+    { href: "/lectures", label: "講義" },
+    { href: "/home#curriculum", label: "コード演習" },
     { href: "/lessons/3", label: "学習を再開" },
+  ],
+  admin: [
+    { href: "/admin", label: "レビュー" },
+    { href: "/admin/users", label: "受講者" },
+    { href: "/admin/lectures", label: "講義" },
   ],
   minimal: [],
 };
 
+// レビュー待ちの件数を取り直す間隔（管理画面のバッジ）
+const SUMMARY_INTERVAL_MS = 30_000;
+
 // global-nav: 44px の真っ黒なバー。モバイルではリンクをハンバーガーメニューにたたむ。
 export function GlobalNav({ variant = "app" }: { variant?: Variant }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const items = links[variant];
   const [user, setUser] = useState<User | null>(null);
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
+  const signedIn = variant === "app" || variant === "admin";
 
   // アバターに出すため、サインイン中のユーザーを取る（未サインインなら何も出さない）
   useEffect(() => {
-    if (variant !== "app") return;
+    if (!signedIn) return;
     getMe().then(setUser, () => setUser(null));
+  }, [signedIn]);
+
+  // 管理画面では、レビュー待ちの件数を定期的に取り直してバッジに出す（アプリ内の通知）
+  useEffect(() => {
+    if (variant !== "admin") return;
+    const load = () => getAdminSummary().then((s) => setPendingCount(s.pendingCount), () => {});
+    load();
+    const timer = setInterval(load, SUMMARY_INTERVAL_MS);
+    return () => clearInterval(timer);
   }, [variant]);
 
   async function signOut() {
     setOpen(false);
     await logout().catch(() => {});
-    router.replace("/login");
-    router.refresh();
+    // サインイン状態が変わったので、ページ読み込みとして移動する（router.replace は使わない）。
+    // クライアント側のルーターは「/login → 別ページへ転送」という前の結果を覚えていることがあり、
+    // それを使い回されると古い状態のページに戻されてしまう。
+    window.location.replace("/login");
   }
 
   return (
     <header className="sticky top-0 z-40 shrink-0 bg-black text-white">
       <nav className="mx-auto flex h-11 max-w-[1440px] items-center justify-between px-4 sm:px-6">
         <Link
-          href={variant === "app" ? "/home" : "/"}
+          href={variant === "app" ? "/home" : variant === "admin" ? "/admin" : "/"}
           className="flex items-center gap-2 text-[13px] font-semibold tracking-[-0.12px]"
           onClick={() => setOpen(false)}
         >
@@ -57,7 +78,10 @@ export function GlobalNav({ variant = "app" }: { variant?: Variant }) {
         <ul className="hidden items-center gap-7 text-[12px] tracking-[-0.12px] text-white/80 md:flex">
           {items.map((item) => (
             <li key={item.href}>
-              <Link href={item.href}>{item.label}</Link>
+              <Link href={item.href} className="flex items-center gap-1.5">
+                {item.label}
+                {item.href === "/admin" && <PendingBadge count={pendingCount} />}
+              </Link>
             </li>
           ))}
         </ul>
@@ -68,14 +92,14 @@ export function GlobalNav({ variant = "app" }: { variant?: Variant }) {
               サインイン
             </Link>
           )}
-          {variant === "app" && (
+          {signedIn && (
             <>
               <button type="button" onClick={signOut} className="hidden px-2 md:inline">
                 サインアウト
               </button>
               <span
                 className="ml-2 grid size-7 place-items-center rounded-full bg-white/15 text-[11px] text-white"
-                aria-label={user ? `${user.name}（${user.employeeNo}）` : "受講者"}
+                aria-label={user ? `${user.name}（${user.employeeNo}）` : "サインイン中のユーザー"}
                 title={user ? `${user.name}（${user.employeeNo}）` : undefined}
               >
                 {user?.name.slice(0, 1) ?? ""}
@@ -110,11 +134,14 @@ export function GlobalNav({ variant = "app" }: { variant?: Variant }) {
                   className="block border-b border-white/10 py-3.5 type-tagline"
                   onClick={() => setOpen(false)}
                 >
-                  {item.label}
+                  <span className="flex items-center gap-2">
+                    {item.label}
+                    {item.href === "/admin" && <PendingBadge count={pendingCount} />}
+                  </span>
                 </Link>
               </li>
             ))}
-            {variant === "app" && (
+            {signedIn && (
               <li>
                 <button type="button" className="block w-full py-3.5 text-left type-body text-white/60" onClick={signOut}>
                   サインアウト
@@ -125,5 +152,17 @@ export function GlobalNav({ variant = "app" }: { variant?: Variant }) {
         </div>
       )}
     </header>
+  );
+}
+
+function PendingBadge({ count }: { count: number | null }) {
+  if (!count) return null;
+  return (
+    <span
+      className="grid min-w-[18px] place-items-center rounded-full bg-primary px-1.5 text-[10px] font-semibold leading-[18px] text-white"
+      aria-label={`レビュー待ち ${count} 件`}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
   );
 }

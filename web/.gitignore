@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Monaco Editor（scripts/copy-monaco.mjs が node_modules からコピーする）
+/public/monaco

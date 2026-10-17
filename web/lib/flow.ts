@@ -38,8 +38,8 @@ export const initialNodes: FlowNode[] = [
   { id: "n1", type: "start", label: "開始", x: 220, y: 50 },
   { id: "n2", type: "io", label: "score を入力", x: 220, y: 140 },
   { id: "n3", type: "decision", label: "score >= 60", x: 220, y: 250 },
-  { id: "n4", type: "io", label: "「合格」と表示", x: 100, y: 380 },
-  { id: "n5", type: "io", label: "「不合格」と表示", x: 340, y: 380 },
+  { id: "n4", type: "io", label: "「合格」と表示", x: 220, y: 380 },
+  { id: "n5", type: "io", label: "「不合格」と表示", x: 430, y: 380 },
   { id: "n6", type: "end", label: "終了", x: 220, y: 490 },
 ];
 
@@ -51,7 +51,10 @@ export const initialEdges: FlowEdge[] = [
   { id: "e5", from: "n4", to: "n6" },
 ];
 
-/** エッジの SVG パス（直交ルーティング）と、分岐ラベルの位置を返す */
+/**
+ * エッジの SVG パス（直交ルーティング）と、分岐ラベルの位置を返す（管理画面のプレビュー用）。
+ * 条件分岐は True を下、False を右から出す（編集画面の React Flow のノードと同じ向き）。
+ */
 export function edgePath(edge: FlowEdge, nodes: FlowNode[]) {
   const a = nodes.find((n) => n.id === edge.from);
   const b = nodes.find((n) => n.id === edge.to);
@@ -60,33 +63,27 @@ export function edgePath(edge: FlowEdge, nodes: FlowNode[]) {
   const sb = nodeSize[b.type];
   const targetTop = b.y - sb.h / 2;
 
-  if (edge.branch) {
-    const dir = edge.branch === "true" ? -1 : 1;
-    const sx = a.x + (dir * sa.w) / 2;
-    if ((b.x - sx) * dir > 0 && targetTop > a.y) {
-      return {
-        d: `M${sx} ${a.y} H${b.x} V${targetTop}`,
-        labelX: sx + dir * 14,
-        labelY: a.y - 7,
-      };
+  if (edge.branch === "false") {
+    const sx = a.x + sa.w / 2;
+    const label = { labelX: sx + 6, labelY: a.y - 7 };
+    if (b.x > sx && targetTop > a.y) {
+      return { d: `M${sx} ${a.y} H${b.x} V${targetTop}`, ...label };
     }
-    // 分岐先が反対側・上側にあるときは外側に一度出てから回り込む
-    return {
-      d: `M${sx} ${a.y} h${dir * 18} V${targetTop - 18} H${b.x} V${targetTop}`,
-      labelX: sx + dir * 14,
-      labelY: a.y - 7,
-    };
+    // 分岐先が左側・上側にあるときは、右に一度出てから回り込む
+    return { d: `M${sx} ${a.y} h18 V${targetTop - 18} H${b.x} V${targetTop}`, ...label };
   }
 
   const sy = a.y + sa.h / 2;
+  // True は下から出す（それ以外の矢印と同じ経路）。ラベルは出口の右下に置く
+  const label = edge.branch === "true" ? { labelX: a.x + 6, labelY: sy + 14 } : {};
   if (targetTop >= sy + 10) {
-    if (Math.abs(a.x - b.x) < 1) return { d: `M${a.x} ${sy} V${targetTop}` };
+    if (Math.abs(a.x - b.x) < 1) return { d: `M${a.x} ${sy} V${targetTop}`, ...label };
     const midY = (sy + targetTop) / 2;
-    return { d: `M${a.x} ${sy} V${midY} H${b.x} V${targetTop}` };
+    return { d: `M${a.x} ${sy} V${midY} H${b.x} V${targetTop}`, ...label };
   }
   // 上方向に戻るループは右側を迂回する
   const side = Math.max(a.x + sa.w / 2, b.x + sb.w / 2) + 28;
-  return { d: `M${a.x} ${sy} v16 H${side} V${targetTop - 16} H${b.x} V${targetTop}` };
+  return { d: `M${a.x} ${sy} v16 H${side} V${targetTop - 16} H${b.x} V${targetTop}`, ...label };
 }
 
 /** 構造化ノードによるルールベース採点（MVP の暫定方式） */

@@ -287,3 +287,31 @@ body {
   line-height: 1.47;
   letter-spacing: -0.374px;
 }
+
+/* React Flow（フロー図エディタ）の見た目を、このデザインに合わせる */
+.flow-canvas .react-flow__edge-path {
+  stroke: #7a7a7a;
+  stroke-width: 1.4;
+}
+.flow-canvas .react-flow__edge.selected .react-flow__edge-path,
+.flow-canvas .react-flow__edge:focus-visible .react-flow__edge-path {
+  stroke: var(--color-primary);
+  stroke-width: 2;
+}
+.flow-canvas .react-flow__selection,
+.flow-canvas .react-flow__nodesselection-rect {
+  background: rgb(0 113 227 / 0.08);
+  border: 1px dashed var(--color-primary);
+}
+.flow-canvas .react-flow__node:focus-visible {
+  outline: 2px solid var(--color-primary-focus);
+  outline-offset: 2px;
+}
+
+/* コードエディタ（Monaco）のレインボーインデント。字下げの段ごとに薄く色を付ける（indent-rainbow と同じ配色） */
+.indent-rainbow-0 { background-color: rgb(255 255 64 / 0.07); }
+.indent-rainbow-1 { background-color: rgb(127 255 127 / 0.07); }
+.indent-rainbow-2 { background-color: rgb(255 127 255 / 0.07); }
+.indent-rainbow-3 { background-color: rgb(79 236 236 / 0.07); }
+/* インデントがずれている行（4 の倍数でない、タブが混ざっている） */
+.indent-rainbow-error { background-color: rgb(255 59 48 / 0.35); }

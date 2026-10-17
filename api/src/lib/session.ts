@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Context } from "hono";
 import { deleteCookie, setCookie } from "hono/cookie";
-import { isProduction, SESSION_DAYS_REMEMBER, SESSION_HOURS_DEFAULT } from "../config/config.js";
+import { cookieSecure, SESSION_DAYS_REMEMBER, SESSION_HOURS_DEFAULT } from "../config/config.js";
 import { pool } from "../db.js";
 
 export const SESSION_COOKIE = "session";
@@ -28,7 +28,7 @@ export async function createSession(c: Context, userId: string, rememberMe: bool
   setCookie(c, SESSION_COOKIE, token, {
     httpOnly: true, // JavaScript から読めない
     sameSite: "Lax", // 別サイトからの POST / PUT には付かない
-    secure: isProduction, // 本番（HTTPS）では HTTPS のときだけ送る
+    secure: cookieSecure, // 本番（HTTPS）では HTTPS のときだけ送る
     path: "/",
     // rememberMe でなければ有効期限を付けず、ブラウザを閉じたら消えるクッキーにする
     ...(rememberMe ? { expires: expiresAt } : {}),

@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { CheckIcon, CodeIcon, PlayIcon, ResetIcon, XIcon } from "@/components/icons";
-import { JavaEditor } from "./java-editor";
+import { MonacoJavaEditor } from "./monaco-java-editor";
+import type { CodeContent } from "@/api/submissions-api";
 import { PaneHeader } from "./resizable-panes";
+import { StageBanner, SubmitButton, type SubmitControl } from "./submission-status";
+import { autosaveLabel, useAutosave } from "./use-autosave";
 
 export const starterCode = `public class Main {
     public static void main(String[] args) {
@@ -46,10 +49,35 @@ function simulate(code: string, arg: string): { stdout: string; error?: string }
   return { stdout: (cond ? prints(m[3]) : prints(m[5] ?? "")).join("\n") };
 }
 
-export function CodePane({ onGraded }: { onGraded: (results: TestResult[] | null) => void }) {
-  const [code, setCode] = useState(starterCode);
+function runTests(code: string): TestResult[] {
+  return testCases.map((t) => {
+    const res = simulate(code, t.input);
+    const actual = res.error ? "エラー" : res.stdout;
+    return { ...t, actual, ok: !res.error && actual.trim() === t.expected };
+  });
+}
+
+export function CodePane({
+  onGraded,
+  initial,
+  submit,
+  onSubmit,
+  saveDraft,
+}: {
+  onGraded: (results: TestResult[] | null) => void;
+  /** 開いたときの内容（下書き、なければ最後に提出したコード） */
+  initial?: CodeContent;
+  submit: SubmitControl;
+  onSubmit: (content: CodeContent, results: TestResult[]) => void;
+  /** 下書きの保存（手を止めたときと、ページを離れるときに自動で呼ぶ） */
+  saveDraft: (content: CodeContent, options: { keepalive: boolean }) => Promise<unknown>;
+}) {
+  const [code, setCode] = useState(initial?.code ?? starterCode);
+  const draftStatus = useAutosave<CodeContent>({ code }, saveDraft);
   const [arg, setArg] = useState("80");
   const [tab, setTab] = useState<"output" | "tests">("output");
+  // コンソールは普段たたんでおき、エディタを広く使う。実行・採点・提出したときに開く
+  const [consoleOpen, setConsoleOpen] = useState(false);
   const [running, setRunning] = useState(false);
   const [output, setOutput] = useState<{ stdout: string; error?: string } | null>(null);
   const [results, setResults] = useState<TestResult[] | null>(null);
@@ -64,6 +92,7 @@ export function CodePane({ onGraded }: { onGraded: (results: TestResult[] | null
 
   function run() {
     setTab("output");
+    setConsoleOpen(true);
     setRunning(true);
     setOutput(null);
     setTimeout(() => {
@@ -74,17 +103,24 @@ export function CodePane({ onGraded }: { onGraded: (results: TestResult[] | null
 
   function grade() {
     setTab("tests");
+    setConsoleOpen(true);
     setRunning(true);
     setTimeout(() => {
-      const r = testCases.map((t) => {
-        const res = simulate(code, t.input);
-        const actual = res.error ? "エラー" : res.stdout;
-        return { ...t, actual, ok: !res.error && actual.trim() === t.expected };
-      });
+      const r = runTests(code);
       setResults(r);
       onGraded(r);
       setRunning(false);
     }, 800);
+  }
+
+  // 提出の前に採点し、その結果も一緒に送る（研修担当者が参考にする）
+  function handleSubmit() {
+    const r = runTests(code);
+    setTab("tests");
+    setConsoleOpen(true);
+    setResults(r);
+    onGraded(r);
+    onSubmit({ code }, r);
   }
 
   const passed = results?.filter((r) => r.ok).length ?? 0;
@@ -92,6 +128,9 @@ export function CodePane({ onGraded }: { onGraded: (results: TestResult[] | null
   return (
     <>
       <PaneHeader icon={<CodeIcon size={16} />} title="Javaコード" dark>
+        <span className="hidden type-fine text-white/45 md:inline" role="status">
+          {autosaveLabel(draftStatus)}
+        </span>
         <button
           type="button"
           className="btn type-caption text-white/60"
@@ -107,20 +146,28 @@ export function CodePane({ onGraded }: { onGraded: (results: TestResult[] | null
             実行
           </button>
         </span>
-        <button type="button" className="btn btn-primary" onClick={grade} disabled={running}>
-          採点する
-        </button>
+        <span className="on-dark">
+          <button type="button" className="btn btn-secondary" onClick={grade} disabled={running}>
+            採点する
+          </button>
+        </span>
+        <SubmitButton control={submit} onClick={handleSubmit} />
       </PaneHeader>
+      <StageBanner control={submit} dark />
 
       <div className="flex h-9 shrink-0 items-end gap-px bg-tile-1 px-2">
         <span className="rounded-t-sm bg-tile-3 px-4 py-2 font-mono text-[12px] text-white/85">Main.java</span>
       </div>
 
-      <JavaEditor value={code} onChange={update} />
+      <MonacoJavaEditor value={code} onChange={update} />
 
-      {/* コンソール */}
-      <div className="flex h-[38%] min-h-[150px] shrink-0 flex-col border-t border-white/10 bg-tile-1 text-white">
-        <div className="flex items-center justify-between gap-3 px-3 pt-2">
+      {/* コンソール（たためる） */}
+      <div
+        className={`flex shrink-0 flex-col border-t border-white/10 bg-tile-1 text-white ${
+          consoleOpen ? "h-[38%] min-h-[150px]" : ""
+        }`}
+      >
+        <div className={`flex items-center justify-between gap-3 px-3 ${consoleOpen ? "pt-2" : "py-1.5"}`}>
           <div className="flex gap-1" role="tablist">
             {(
               [
@@ -133,26 +180,39 @@ export function CodePane({ onGraded }: { onGraded: (results: TestResult[] | null
                 type="button"
                 role="tab"
                 aria-selected={tab === key}
-                onClick={() => setTab(key)}
+                onClick={() => {
+                  setTab(key);
+                  setConsoleOpen(true);
+                }}
                 className={`btn rounded-full px-3 py-1 type-caption ${tab === key ? "bg-white/15 text-white" : "text-white/55"}`}
               >
                 {label}
               </button>
             ))}
           </div>
-          {tab === "output" && (
-            <label className="flex items-center gap-2 type-fine text-white/55">
-              引数
-              <input
-                value={arg}
-                onChange={(e) => setArg(e.target.value)}
-                className="h-7 w-16 rounded-full border border-white/15 bg-tile-3 px-3 font-mono text-[12px] text-white outline-none focus:border-primary-on-dark"
-              />
-            </label>
-          )}
+          <div className="flex items-center gap-2">
+            {consoleOpen && tab === "output" && (
+              <label className="flex items-center gap-2 type-fine text-white/55">
+                引数
+                <input
+                  value={arg}
+                  onChange={(e) => setArg(e.target.value)}
+                  className="h-7 w-16 rounded-full border border-white/15 bg-tile-3 px-3 font-mono text-[12px] text-white outline-none focus:border-primary-on-dark"
+                />
+              </label>
+            )}
+            <button
+              type="button"
+              className="btn rounded-full px-3 py-1 type-fine text-white/55"
+              onClick={() => setConsoleOpen((o) => !o)}
+              aria-expanded={consoleOpen}
+            >
+              {consoleOpen ? "▼ たたむ" : "▲ 開く"}
+            </button>
+          </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto px-4 py-3 font-mono text-[12.5px] leading-[1.7]" role="tabpanel">
+        <div className={`min-h-0 flex-1 overflow-auto px-4 py-3 font-mono text-[12.5px] leading-[1.7] ${consoleOpen ? "" : "hidden"}`} role="tabpanel">
           {running ? (
             <p className="flex items-center gap-2 text-white/55">
               <span className="size-3 animate-spin rounded-full border-2 border-white/20 border-t-primary-on-dark" />

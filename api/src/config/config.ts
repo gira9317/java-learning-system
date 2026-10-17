@@ -10,6 +10,9 @@ function getEnv(name: string, fallback?: string): string {
 
 export const isProduction = process.env.NODE_ENV === "production";
 
+// セッションのクッキーに Secure を付けるか。既定は本番のとき。HTTPS なしで見るデモ環境では COOKIE_SECURE=false にする
+export const cookieSecure = process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === "true" : isProduction;
+
 export const port = Number(getEnv("PORT", "4000"));
 
 export const databaseUrl = getEnv("DATABASE_URL", "postgresql://app:app@localhost:5432/java_learning");

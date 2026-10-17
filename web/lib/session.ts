@@ -27,3 +27,17 @@ export async function requireUser() {
   if (user.mustChangePassword) redirect("/password");
   return user;
 }
+
+/** 受講者のページ用（ホーム・学習画面）。研修担当者は管理画面へ移す */
+export async function requireLearner() {
+  const user = await requireUser();
+  if (user.role === "admin") redirect("/admin");
+  return user;
+}
+
+/** 管理画面用。受講者はホームへ移す */
+export async function requireAdmin() {
+  const user = await requireUser();
+  if (user.role !== "admin") redirect("/home");
+  return user;
+}

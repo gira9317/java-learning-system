@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { changePassword } from "@/api/auth-api";
 import { ApiError } from "@/api/client";
@@ -9,7 +8,6 @@ type Field = "currentPassword" | "newPassword" | "confirm";
 type Errors = Partial<Record<Field | "form", string>>;
 
 export function PasswordForm() {
-  const router = useRouter();
   const [values, setValues] = useState<Record<Field, string>>({ currentPassword: "", newPassword: "", confirm: "" });
   const [errors, setErrors] = useState<Errors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -36,8 +34,10 @@ export function PasswordForm() {
       setSubmitting(false);
       return;
     }
-    router.replace("/home");
-    router.refresh();
+    // サインイン状態が変わったので、ページ読み込みとして移動する（router.replace は使わない）。
+    // クライアント側のルーターは「/home → 別ページへ転送」という前の結果を覚えていることがあり、
+    // それを使い回されると古い状態のページに戻されてしまう。
+    window.location.replace("/home");
   }
 
   return (

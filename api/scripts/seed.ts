@@ -1,5 +1,6 @@
 /*
- * 開発用の初期データ。何度実行してもよい（作成済みのユーザーはそのまま残す）。
+ * 開発用の初期データ。何度実行してもよい（作成済みのユーザーや進捗はそのまま残す）。
+ * Docker で起動したときは、起動のたびに実行される。
  *   npm run db:seed
  */
 import { pool } from "../src/db.js";
@@ -57,8 +58,7 @@ await pool.query(
   FROM users u,
        (VALUES (1, 'completed'), (2, 'completed'), (3, 'in-progress')) AS v(lesson_id, status)
   WHERE u.employee_no = 'T2026001'
-  ON CONFLICT (user_id, lesson_id)
-  DO UPDATE SET status = EXCLUDED.status, updated_at = now()
+  ON CONFLICT (user_id, lesson_id) DO NOTHING
   `,
 );
 console.log("進捗: T2026001 に Lesson 01–02 完了 / 03 学習中 を設定");

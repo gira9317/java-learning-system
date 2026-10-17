@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { login } from "@/api/auth-api";
 import { ApiError } from "@/api/client";
@@ -8,7 +7,6 @@ import { ApiError } from "@/api/client";
 type Errors = { id?: string; password?: string; form?: string };
 
 export function LoginForm() {
-  const router = useRouter();
   const [id, setId] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
@@ -33,9 +31,11 @@ export function LoginForm() {
       setErrors({ form: e instanceof ApiError ? e.message : "サインインに失敗しました。" });
       return;
     }
-    // 初期パスワードのままなら、ホーム側でパスワード変更へ移される
-    router.replace("/home");
-    router.refresh();
+    // 初期パスワードのままなら、ホーム側でパスワード変更へ移される。
+    // サインイン状態が変わったので、ページ読み込みとして移動する（router.replace は使わない）。
+    // クライアント側のルーターは「/home → 別ページへ転送」という前の結果を覚えていることがあり、
+    // それを使い回されると古い状態のページに戻されてしまう。
+    window.location.replace("/home");
   }
 
   return (

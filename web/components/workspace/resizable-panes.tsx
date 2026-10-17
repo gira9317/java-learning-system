@@ -8,15 +8,36 @@ type Props = {
   children: ReactNode[];
   initial: number[];
   labels: string[];
+  /** 表示するペイン。渡すと外から制御する（渡さなければ内部で持つ） */
+  active?: number;
+  onActiveChange?: (index: number) => void;
+  /** false にすると、画面の幅に関係なく active のペインだけを全幅で表示する */
+  split?: boolean;
+  /** 切り替えのタブを外側で描くときは true */
+  hideTabs?: boolean;
 };
 
 /**
- * モバイルではタブで 1 ペインずつ切り替え、lg 以上では横並びにしてドラッグで幅を調整する。
+ * split（既定）: モバイルではタブで 1 ペインずつ切り替え、lg 以上では横並びにしてドラッグで幅を調整する。
+ * split=false: どの幅でも、選んだ 1 ペインだけを全幅で表示する。
  * 非表示のペインもマウントしたままにして、コードや図の編集内容を保つ。
  */
-export function ResizablePanes({ children, initial, labels }: Props) {
+export function ResizablePanes({
+  children,
+  initial,
+  labels,
+  active: controlledActive,
+  onActiveChange,
+  split = true,
+  hideTabs = false,
+}: Props) {
   const [sizes, setSizes] = useState(initial);
-  const [active, setActive] = useState(0);
+  const [innerActive, setInnerActive] = useState(0);
+  const active = controlledActive ?? innerActive;
+  const setActive = (index: number) => {
+    setInnerActive(index);
+    onActiveChange?.(index);
+  };
   const [dragging, setDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -54,8 +75,13 @@ export function ResizablePanes({ children, initial, labels }: Props) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 border-b border-hairline bg-canvas px-4 py-2 lg:hidden">
-        <div role="tablist" aria-label="表示するペイン" className="grid grid-cols-3 gap-1 rounded-full bg-parchment p-1">
+      <div className={`shrink-0 border-b border-hairline bg-canvas px-4 py-2 lg:hidden ${hideTabs ? "hidden" : ""}`}>
+        <div
+          role="tablist"
+          aria-label="表示するペイン"
+          className="grid gap-1 rounded-full bg-parchment p-1"
+          style={{ gridTemplateColumns: `repeat(${labels.length}, minmax(0, 1fr))` }}
+        >
           {labels.map((label, i) => (
             <button
               key={label}
@@ -82,12 +108,14 @@ export function ResizablePanes({ children, initial, labels }: Props) {
               id={`pane-${i}`}
               role="tabpanel"
               aria-labelledby={`pane-tab-${i}`}
-              className={`${active === i ? "flex" : "hidden"} min-h-0 min-w-0 flex-1 flex-col lg:flex lg:[flex:var(--pane)_1_0%]`}
+              className={`${active === i ? "flex" : "hidden"} min-h-0 min-w-0 flex-1 flex-col ${
+                split ? "lg:flex lg:[flex:var(--pane)_1_0%]" : ""
+              }`}
               style={{ "--pane": sizes[i] } as CSSProperties}
             >
               {child}
             </div>
-            {i < children.length - 1 && (
+            {split && i < children.length - 1 && (
               <div
                 role="separator"
                 aria-orientation="vertical"
