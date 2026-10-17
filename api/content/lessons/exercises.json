@@ -1,0 +1,72 @@
+{
+  "1": [
+    {"title":"Hello Java","prompt":"`Hello, Java!`を1行で表示してください。入力はありません。","tests":[{"args":[],"expected":"Hello, Java!"}]},
+    {"title":"2行のあいさつ","prompt":"1行目に`おはようございます`、2行目に`Javaの学習を始めます`を表示してください。入力はありません。","tests":[{"args":[],"expected":"おはようございます\nJavaの学習を始めます"}]},
+    {"title":"名前を表示","prompt":"第1引数で受け取った名前を使って`こんにちは、名前さん`と表示してください。名前は空白を含まない文字列です。例：`args[0]`で最初の引数を取得できます。","tests":[{"args":["太郎"],"expected":"こんにちは、太郎さん"},{"args":["Hanako"],"expected":"こんにちは、Hanakoさん"},{"args":["Java"],"expected":"こんにちは、Javaさん","hidden":true}]},
+    {"title":"表示の順番","prompt":"第1引数と第2引数を、受け取った順に1行ずつ表示してください。引数は必ず2つです。","tests":[{"args":["赤","青"],"expected":"赤\n青"},{"args":["A","B"],"expected":"A\nB"},{"args":["2","1"],"expected":"2\n1","hidden":true}]},
+    {"title":"文字をつなげる","prompt":"第1引数と第2引数を半角ハイフン`-`でつないで1行に表示してください。余分な空白は入れません。","tests":[{"args":["Java","Training"],"expected":"Java-Training"},{"args":["A","1"],"expected":"A-1"},{"args":["学習","開始"],"expected":"学習-開始","hidden":true}]}
+  ],
+  "2": [
+    {"title":"2つの整数の合計","prompt":"2つの引数を整数に変換し、合計を表示してください。各値は-1000〜1000です。","tests":[{"args":["3","5"],"expected":"8"},{"args":["-4","4"],"expected":"0"},{"args":["0","-7"],"expected":"-7","hidden":true}]},
+    {"title":"長方形の面積","prompt":"第1引数を横、第2引数を縦として、長方形の面積を整数で表示してください。各辺は1〜100です。","tests":[{"args":["3","4"],"expected":"12"},{"args":["1","8"],"expected":"8"},{"args":["100","100"],"expected":"10000","hidden":true}]},
+    {"title":"秒を分と秒に変換","prompt":"0〜10000の整数の秒数を第1引数で受け取り、`分:残りの秒`の形で表示してください。ゼロ埋めは不要です。割り算と余りを使いましょう。","tests":[{"args":["125"],"expected":"2:5"},{"args":["60"],"expected":"1:0"},{"args":["0"],"expected":"0:0","hidden":true}]},
+    {"title":"整数の平均","prompt":"整数3つを引数で受け取り、平均の整数部分を表示してください。値はすべて0〜100で、小数部分は切り捨てます。","tests":[{"args":["10","20","30"],"expected":"20"},{"args":["1","2","2"],"expected":"1"},{"args":["0","0","0"],"expected":"0","hidden":true}]},
+    {"title":"単価と個数","prompt":"第1引数の単価と第2引数の個数を整数で受け取り、`合計: 金額円`と表示してください。単価は0〜10000、個数は0〜100です。コロンの後に半角空白を1つ入れます。","tests":[{"args":["120","3"],"expected":"合計: 360円"},{"args":["500","0"],"expected":"合計: 0円"},{"args":["0","10"],"expected":"合計: 0円","hidden":true}]}
+  ],
+  "3": [
+    {"title":"合否判定","prompt":"第1引数で0〜100の点数を受け取り、60点以上なら`合格`、60点未満なら`不合格`と表示してください。","tests":[{"args":["80"],"expected":"合格"},{"args":["60"],"expected":"合格","label":"境界値"},{"args":["59"],"expected":"不合格"},{"args":["0"],"expected":"不合格","hidden":true},{"args":["100"],"expected":"合格","hidden":true}]},
+    {"title":"偶数と奇数","prompt":"第1引数の整数が偶数なら`偶数`、そうでなければ`奇数`と表示してください。値は-1000〜1000です。","tests":[{"args":["4"],"expected":"偶数"},{"args":["3"],"expected":"奇数"},{"args":["-3"],"expected":"奇数","hidden":true},{"args":["0"],"expected":"偶数","hidden":true}]},
+    {"title":"正・負・ゼロ","prompt":"第1引数の整数が正なら`正`、負なら`負`、0なら`ゼロ`と表示してください。値は-1000〜1000です。","tests":[{"args":["5"],"expected":"正"},{"args":["0"],"expected":"ゼロ"},{"args":["-1"],"expected":"負","hidden":true}]},
+    {"title":"営業時間","prompt":"第1引数で0〜23の時刻を受け取り、9時以上18時未満なら`営業中`、それ以外なら`営業時間外`と表示してください。","tests":[{"args":["9"],"expected":"営業中"},{"args":["18"],"expected":"営業時間外"},{"args":["8"],"expected":"営業時間外","hidden":true},{"args":["17"],"expected":"営業中","hidden":true}]},
+    {"title":"3段階の評価","prompt":"第1引数の0〜100の点数について、80点以上は`A`、60点以上80点未満は`B`、60点未満は`C`と表示してください。","tests":[{"args":["80"],"expected":"A"},{"args":["60"],"expected":"B"},{"args":["79"],"expected":"B","hidden":true},{"args":["59"],"expected":"C","hidden":true}]}
+  ],
+  "4": [
+    {"title":"メニュー選択","prompt":"switch文を使い、第1引数の整数が1なら`登録`、2なら`検索`、3なら`終了`、それ以外なら`無効`と表示してください。","tests":[{"args":["1"],"expected":"登録"},{"args":["2"],"expected":"検索"},{"args":["3"],"expected":"終了","hidden":true},{"args":["0"],"expected":"無効","hidden":true}]},
+    {"title":"曜日の表示","prompt":"switch文を使い、第1引数の1〜7を順に`月`、`火`、`水`、`木`、`金`、`土`、`日`へ変換して表示してください。それ以外の整数は`無効`と表示します。","tests":[{"args":["1"],"expected":"月"},{"args":["7"],"expected":"日"},{"args":["4"],"expected":"木","hidden":true},{"args":["8"],"expected":"無効","hidden":true}]},
+    {"title":"平日と休日","prompt":"第1引数の整数について、1〜5なら`平日`、6か7なら`休日`、それ以外なら`無効`と表示してください。複数のcaseを同じ処理にまとめましょう。","tests":[{"args":["5"],"expected":"平日"},{"args":["6"],"expected":"休日"},{"args":["7"],"expected":"休日","hidden":true},{"args":["0"],"expected":"無効","hidden":true}]},
+    {"title":"四則演算の選択","prompt":"第1引数を`add`、`sub`、`mul`のいずれか、第2・第3引数を-100〜100の整数として、対応する加算・減算・乗算の結果を表示してください。演算名がそれ以外なら`無効`と表示します。","tests":[{"args":["add","3","4"],"expected":"7"},{"args":["sub","3","4"],"expected":"-1"},{"args":["mul","-2","5"],"expected":"-10","hidden":true},{"args":["div","4","2"],"expected":"無効","hidden":true}]},
+    {"title":"季節の判定","prompt":"第1引数の月が3〜5なら`春`、6〜8なら`夏`、9〜11なら`秋`、12・1・2なら`冬`と表示してください。1〜12以外は`無効`です。switch文で月をまとめてください。","tests":[{"args":["3"],"expected":"春"},{"args":["12"],"expected":"冬"},{"args":["8"],"expected":"夏","hidden":true},{"args":["10"],"expected":"秋","hidden":true},{"args":["0"],"expected":"無効","hidden":true}]}
+  ],
+  "5": [
+    {"title":"1からNまで","prompt":"第1引数のN（1〜20）について、for文で1からNまでを1行ずつ表示してください。","tests":[{"args":["3"],"expected":"1\n2\n3"},{"args":["1"],"expected":"1"},{"args":["5"],"expected":"1\n2\n3\n4\n5","hidden":true}]},
+    {"title":"1からNの合計","prompt":"第1引数のN（0〜100）について、for文で1からNまでの合計を表示してください。Nが0なら0です。","tests":[{"args":["4"],"expected":"10"},{"args":["0"],"expected":"0"},{"args":["100"],"expected":"5050","hidden":true}]},
+    {"title":"偶数の合計","prompt":"第1引数のN（0〜100）について、1以上N以下の偶数だけを合計して表示してください。","tests":[{"args":["6"],"expected":"12"},{"args":["1"],"expected":"0"},{"args":["5"],"expected":"6","hidden":true}]},
+    {"title":"九九の1つの段","prompt":"第1引数のN（1〜9）に対し、N×1からN×9までの計算結果を1行ずつ表示してください。式やラベルは表示しません。","tests":[{"args":["2"],"expected":"2\n4\n6\n8\n10\n12\n14\n16\n18"},{"args":["1"],"expected":"1\n2\n3\n4\n5\n6\n7\n8\n9"},{"args":["9"],"expected":"9\n18\n27\n36\n45\n54\n63\n72\n81","hidden":true}]},
+    {"title":"階乗","prompt":"第1引数のN（0〜10）の階乗をfor文で計算して表示してください。階乗は1からNまでの積で、0の階乗は1とします。","tests":[{"args":["4"],"expected":"24"},{"args":["0"],"expected":"1"},{"args":["10"],"expected":"3628800","hidden":true}]}
+  ],
+  "6": [
+    {"title":"カウントダウン","prompt":"第1引数のN（0〜20）から1までをwhile文で1行ずつ表示し、最後に`終了`を表示してください。Nが0なら`終了`だけを表示します。","tests":[{"args":["3"],"expected":"3\n2\n1\n終了"},{"args":["0"],"expected":"終了"},{"args":["1"],"expected":"1\n終了","hidden":true}]},
+    {"title":"整数の桁数","prompt":"第1引数の0〜1000000の整数の桁数をwhile文で求めて表示してください。0の桁数は1です。","tests":[{"args":["123"],"expected":"3"},{"args":["0"],"expected":"1"},{"args":["1000000"],"expected":"7","hidden":true}]},
+    {"title":"各桁の合計","prompt":"第1引数の0〜1000000の整数を10で割りながら、各桁の数字の合計を表示してください。","tests":[{"args":["1234"],"expected":"10"},{"args":["0"],"expected":"0"},{"args":["909"],"expected":"18","hidden":true}]},
+    {"title":"2で割れる回数","prompt":"第1引数の正の整数（1〜1000000）が、余りなく2で割れる回数をwhile文で求めて表示してください。割れなくなったら終了します。","tests":[{"args":["12"],"expected":"2"},{"args":["7"],"expected":"0"},{"args":["16"],"expected":"4","hidden":true},{"args":["1"],"expected":"0","hidden":true}]},
+    {"title":"目標まで貯金","prompt":"第1引数の目標額（0〜100000）、第2引数の毎月の貯金額（1〜10000）を受け取り、0円から目標以上になるまで必要な月数をwhile文で求めてください。利息はありません。","tests":[{"args":["1000","300"],"expected":"4"},{"args":["0","100"],"expected":"0"},{"args":["900","300"],"expected":"3","hidden":true}]}
+  ],
+  "7": [
+    {"title":"配列の合計","prompt":"0〜10個の整数の引数をint配列へ変換し、合計を表示してください。各整数は-100〜100です。引数が0個なら0とします。","tests":[{"args":["1","2","3"],"expected":"6"},{"args":[],"expected":"0"},{"args":["-2","5"],"expected":"3","hidden":true}]},
+    {"title":"配列の最大値","prompt":"1〜10個の整数の引数をint配列へ変換し、最大値を表示してください。各整数は-100〜100で、引数は必ず1個以上あります。","tests":[{"args":["3","9","2"],"expected":"9"},{"args":["-5","-2","-9"],"expected":"-2"},{"args":["0"],"expected":"0","hidden":true}]},
+    {"title":"逆順に表示","prompt":"0〜10個の引数を配列の末尾から順に1行ずつ表示してください。引数が0個なら何も表示しません。","tests":[{"args":["A","B","C"],"expected":"C\nB\nA"},{"args":[],"expected":""},{"args":["Java"],"expected":"Java","hidden":true}]},
+    {"title":"条件に合う要素数","prompt":"0〜10個の整数の引数について、60以上の要素が何個あるか数えて表示してください。各整数は0〜100です。","tests":[{"args":["59","60","80"],"expected":"2"},{"args":[],"expected":"0"},{"args":["60","60"],"expected":"2","hidden":true}]},
+    {"title":"配列内を検索","prompt":"第1引数を検索対象の文字列、第2引数以降の0〜9個を検索する配列とします。内容が一致する要素があれば、配列内で最初に見つかる位置を0始まりで表示し、なければ-1と表示してください。文字列の比較にはequalsを使います。","tests":[{"args":["B","A","B","C"],"expected":"1"},{"args":["X","A","B"],"expected":"-1"},{"args":["A","A","A"],"expected":"0","hidden":true},{"args":["X"],"expected":"-1","hidden":true}]}
+  ],
+  "8": [
+    {"title":"合計を返すメソッド","prompt":"`static int add(int a, int b)`を作り、第1・第2引数の整数を渡して戻り値を表示してください。各値は-1000〜1000です。","tests":[{"args":["3","5"],"expected":"8"},{"args":["-3","3"],"expected":"0"},{"args":["-2","-4"],"expected":"-6","hidden":true}]},
+    {"title":"大きい値を返す","prompt":"`static int max(int a, int b)`を作り、第1・第2引数のうち大きい値を返して表示してください。同じ値ならその値を返します。値は-1000〜1000です。","tests":[{"args":["2","9"],"expected":"9"},{"args":["5","5"],"expected":"5"},{"args":["-8","-2"],"expected":"-2","hidden":true}]},
+    {"title":"偶数判定メソッド","prompt":"`static boolean isEven(int value)`を作り、第1引数が偶数ならtrue、奇数ならfalseを返してください。mainで戻り値をそのまま表示します。値は-1000〜1000です。","tests":[{"args":["4"],"expected":"true"},{"args":["3"],"expected":"false"},{"args":["-3"],"expected":"false","hidden":true},{"args":["0"],"expected":"true","hidden":true}]},
+    {"title":"配列を受け取るメソッド","prompt":"`static int sum(int[] values)`を作り、0〜10個の整数の引数を配列にして渡し、合計を表示してください。値は-100〜100、空配列の合計は0です。","tests":[{"args":["1","2","3"],"expected":"6"},{"args":[],"expected":"0"},{"args":["-1","-2"],"expected":"-3","hidden":true}]},
+    {"title":"素数判定メソッド","prompt":"`static boolean isPrime(int n)`を作り、第1引数のN（0〜100）が素数かどうかをtrueまたはfalseで表示してください。素数は2以上で、1と自分以外では割り切れない整数です。","tests":[{"args":["7"],"expected":"true"},{"args":["1"],"expected":"false"},{"args":["2"],"expected":"true","hidden":true},{"args":["9"],"expected":"false","hidden":true}]}
+  ],
+  "9": [
+    {"title":"Counterクラス","prompt":"int型のcountを持つCounterクラスを作ってください。第1引数を初期値としてコンストラクタに渡し、increment()で1増やし、getCount()の結果を表示します。初期値は0〜100です。Main以外のクラスにpublicは付けません。","tests":[{"args":["0"],"expected":"1"},{"args":["10"],"expected":"11"},{"args":["100"],"expected":"101","hidden":true}]},
+    {"title":"Rectangleクラス","prompt":"幅と高さをコンストラクタで受け取るRectangleクラスを作ってください。第1・第2引数（各1〜100）からインスタンスを作り、area()が返す面積を表示します。","tests":[{"args":["3","4"],"expected":"12"},{"args":["1","8"],"expected":"8"},{"args":["100","100"],"expected":"10000","hidden":true}]},
+    {"title":"Studentクラス","prompt":"名前と点数を持つStudentクラスを作ってください。第1引数を名前、第2引数を点数（0〜100）として、60以上ならtrueを返すisPassed()を用意し、`名前:合格`または`名前:不合格`と表示します。","tests":[{"args":["太郎","60"],"expected":"太郎:合格"},{"args":["花子","59"],"expected":"花子:不合格"},{"args":["Ken","100"],"expected":"Ken:合格","hidden":true}]},
+    {"title":"口座への入金","prompt":"int型の残高を持つAccountクラスを作り、第1引数を初期残高、第2引数を入金額としてdeposit(int amount)で加算してください。getBalance()の戻り値を表示します。各金額は0〜100000です。","tests":[{"args":["1000","500"],"expected":"1500"},{"args":["0","0"],"expected":"0"},{"args":["10","0"],"expected":"10","hidden":true}]},
+    {"title":"別々のインスタンス","prompt":"Counterクラスを使い、第1引数と第2引数（各0〜100）を初期値にして別々のインスタンスを2つ作ってください。最初のCounterだけ2回増やし、最初・2つ目の値を1行ずつ表示します。","tests":[{"args":["0","10"],"expected":"2\n10"},{"args":["5","5"],"expected":"7\n5"},{"args":["0","0"],"expected":"2\n0","hidden":true}]}
+  ],
+  "10": [
+    {"title":"整数変換の例外","prompt":"第1引数をInteger.parseIntで変換し、整数ならその値、NumberFormatExceptionなら`整数を指定してください`と表示してください。引数は必ず1つあり、整数の場合はintの範囲内です。","tests":[{"args":["12"],"expected":"12"},{"args":["abc"],"expected":"整数を指定してください"},{"args":["-5"],"expected":"-5","hidden":true},{"args":["1.5"],"expected":"整数を指定してください","hidden":true}]},
+    {"title":"ゼロ除算","prompt":"第1・第2引数（各-100〜100）を整数に変換して整数同士の割り算を行い、結果を表示してください。ArithmeticExceptionが発生したら`0では割れません`と表示します。","tests":[{"args":["7","2"],"expected":"3"},{"args":["5","0"],"expected":"0では割れません"},{"args":["-7","2"],"expected":"-3","hidden":true}]},
+    {"title":"配列の範囲外アクセス","prompt":"int配列{10,20,30}を作り、第1引数の整数を添字として要素を表示してください。ArrayIndexOutOfBoundsExceptionなら`範囲外です`と表示します。添字は-10〜10です。","tests":[{"args":["1"],"expected":"20"},{"args":["3"],"expected":"範囲外です"},{"args":["-1"],"expected":"範囲外です","hidden":true},{"args":["0"],"expected":"10","hidden":true}]},
+    {"title":"引数の事前確認","prompt":"引数が0個なら`数値を指定してください`と表示して終了してください。1個なら整数へ変換して2倍を表示し、変換できなければ`整数を指定してください`と表示します。整数は-100〜100で、引数は0個または1個です。","tests":[{"args":[],"expected":"数値を指定してください"},{"args":["12"],"expected":"24"},{"args":["abc"],"expected":"整数を指定してください","hidden":true},{"args":["0"],"expected":"0","hidden":true}]},
+    {"title":"finallyの実行","prompt":"第1引数を整数に変換して表示し、NumberFormatExceptionなら`変換失敗`と表示してください。成功・失敗のどちらでもfinallyを使い、その次の行に`処理終了`を表示します。引数は必ず1個あり、整数の場合はintの範囲内です。","tests":[{"args":["7"],"expected":"7\n処理終了"},{"args":["abc"],"expected":"変換失敗\n処理終了"},{"args":["-1"],"expected":"-1\n処理終了","hidden":true}]}
+  ]
+}

@@ -2,6 +2,8 @@ export type LessonStatus = "completed" | "in-progress" | "locked";
 
 export type Lesson = {
   id: number;
+  number: number;
+  level: "intro" | "core" | "refactor";
   title: string;
   summary: string;
   minutes: number;

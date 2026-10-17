@@ -2,18 +2,28 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { pool } from "../db.js";
 import { getLessonStages } from "../lib/progress.js";
+import { readLessonMaterial } from "../lib/lesson-material.js";
+import { getPublicExercises } from "../lib/exercises.js";
+import { gradeCode, maskHidden, maskHiddenResults, runJava, RunnerUnavailableError, type GradeResult } from "../lib/runner.js";
 import { authMiddleware, requirePasswordChanged } from "../middleware/authMiddleware.js";
+import { rateLimit } from "../middleware/rateLimitMiddleware.js";
 import { lessonIdSchema } from "../schemas/lessons.js";
-import { createSubmissionSchema, draftContentSchemas, draftKindSchema } from "../schemas/submissions.js";
+import {
+  createSubmissionSchema,
+  draftContentSchemas,
+  draftKindSchema,
+  gradeCodeSchema,
+  runCodeSchema,
+} from "../schemas/submissions.js";
 import type { AppEnv } from "../types/auth.js";
 
 const lessons = new Hono<AppEnv>();
 
 // 自分の進捗つきでレッスンを取る。進捗の行がないレッスンは locked
 const SELECT_LESSONS = `
-  SELECT l.id, l.title, l.summary, l.minutes,
+  SELECT l.id, l.number, l.level, l.title, l.summary, l.minutes,
          COALESCE(p.status, 'locked') AS status
-  FROM lessons l
+  FROM (SELECT lessons.*, ROW_NUMBER() OVER (ORDER BY sort_order, id)::int AS number FROM lessons) l
   LEFT JOIN lesson_progress p
     ON p.lesson_id = l.id
    AND p.user_id = $1
@@ -22,7 +32,7 @@ const SELECT_LESSONS = `
 //レッスン一覧（サインイン不要。紹介ページ用で、進捗は含まない）
 lessons.get("/catalog", async (c) => {
   const result = await pool.query(`
-    SELECT id, title, minutes
+    SELECT id, title, minutes, ROW_NUMBER() OVER (ORDER BY sort_order, id)::int AS number
     FROM lessons
     ORDER BY sort_order
   `);
@@ -31,6 +41,12 @@ lessons.get("/catalog", async (c) => {
 
 //ここから下はサインイン必須
 lessons.use("*", authMiddleware, requirePasswordChanged);
+lessons.use("*", async (c, next) => {
+  const raw = c.req.query("question") ?? "1";
+  if (!/^[1-5]$/.test(raw)) return c.json({ message: "問題番号は1〜5を指定してください" }, 400);
+  c.set("questionNo", Number(raw));
+  await next();
+});
 
 //自分の進捗つきレッスン一覧
 lessons.get("/", async (c) => {
@@ -49,7 +65,10 @@ lessons.get("/:id", async (c) => {
   if (result.rowCount === 0) {
     return c.json({ message: "レッスンが見つかりません" }, 404);
   }
-  return c.json({ lesson: result.rows[0] });
+  const lesson = result.rows[0];
+  const material_md = lesson.status === "locked" ? null : await readLessonMaterial(lesson.id, lesson.title);
+  const exercises = lesson.status === "locked" ? [] : await getPublicExercises(lesson.id);
+  return c.json({ lesson: { ...lesson, material_md, exercises } });
 });
 
 //自分の提出の状況。フロー図・コードそれぞれの段階と、最新の提出（エディタの復元用）、提出の履歴
@@ -60,25 +79,31 @@ lessons.get("/:id/submissions", async (c) => {
   }
   const userId = c.get("user").id;
 
-  const stages = await getLessonStages(userId, id.data);
+  const stages = await getLessonStages(userId, id.data, pool, c.get("questionNo"));
   if (!stages) {
     return c.json({ message: "レッスンが見つかりません" }, 404);
   }
 
   const history = await pool.query(
     `
-    SELECT id, kind, content, auto_results, status, review_comment, reviewed_at, created_at
+    SELECT id, question_no, kind, content, auto_results, status, review_comment, reviewed_at, created_at
     FROM submissions
-    WHERE user_id = $1 AND lesson_id = $2
+    WHERE user_id = $1 AND lesson_id = $2 AND question_no = $3
     ORDER BY created_at DESC
     `,
-    [userId, id.data],
+    [userId, id.data, c.get("questionNo")],
   );
+  // コードの採点結果は伏せずに保存しているので、受講者に返す前に非公開のテストケースを伏せる
+  for (const row of history.rows) {
+    if (row.kind === "code" && Array.isArray(row.auto_results)) {
+      row.auto_results = maskHiddenResults(row.auto_results as GradeResult[]);
+    }
+  }
   const latest = (kind: string) => history.rows.find((r) => r.kind === kind) ?? null;
 
   const drafts = await pool.query(
-    `SELECT kind, content, updated_at FROM drafts WHERE user_id = $1 AND lesson_id = $2`,
-    [userId, id.data],
+    `SELECT kind, content, updated_at FROM drafts WHERE user_id = $1 AND lesson_id = $2 AND question_no = $3`,
+    [userId, id.data, c.get("questionNo")],
   );
   const draft = (kind: string) => drafts.rows.find((r) => r.kind === kind) ?? null;
 
@@ -104,7 +129,7 @@ lessons.put("/:id/drafts/:kind", bodyLimit({ maxSize: 100 * 1024 }), async (c) =
   }
   const userId = c.get("user").id;
 
-  const stages = await getLessonStages(userId, id.data);
+  const stages = await getLessonStages(userId, id.data, pool, c.get("questionNo"));
   if (!stages) {
     return c.json({ message: "レッスンが見つかりません" }, 404);
   }
@@ -114,13 +139,13 @@ lessons.put("/:id/drafts/:kind", bodyLimit({ maxSize: 100 * 1024 }), async (c) =
 
   const result = await pool.query(
     `
-    INSERT INTO drafts (user_id, lesson_id, kind, content)
-    VALUES ($1, $2, $3, $4)
-    ON CONFLICT (user_id, lesson_id, kind)
+    INSERT INTO drafts (user_id, lesson_id, kind, content, question_no)
+    VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT (user_id, lesson_id, question_no, kind)
     DO UPDATE SET content = EXCLUDED.content, updated_at = now()
     RETURNING updated_at
     `,
-    [userId, id.data, kind.data, JSON.stringify(content.data)],
+    [userId, id.data, kind.data, JSON.stringify(content.data), c.get("questionNo")],
   );
   return c.json({ savedAt: result.rows[0].updated_at });
 });
@@ -133,9 +158,9 @@ lessons.post("/:id/submissions", bodyLimit({ maxSize: 100 * 1024 }), async (c) =
     return c.json({ message: "入力内容が正しくありません" }, 400);
   }
   const userId = c.get("user").id;
-  const { kind, content, autoResults } = body.data;
+  const { kind, content } = body.data;
 
-  const stages = await getLessonStages(userId, id.data);
+  const stages = await getLessonStages(userId, id.data, pool, c.get("questionNo"));
   if (!stages) {
     return c.json({ message: "レッスンが見つかりません" }, 404);
   }
@@ -151,22 +176,105 @@ lessons.post("/:id/submissions", bodyLimit({ maxSize: 100 * 1024 }), async (c) =
     return c.json({ message: reason }, 409);
   }
 
+  // 自動採点の結果。コードはサーバーで実際に動かして採点し直す（ブラウザから送られた結果は使わない）。
+  // フロー図の採点はブラウザのルールベースのまま（参考として表示するだけ）
+  let autoResults: unknown[] | null = body.data.autoResults ?? null;
+  if (body.data.kind === "code") {
+    try {
+      const grade = await gradeCode(id.data, body.data.content.code, c.get("questionNo"));
+      autoResults = !grade
+        ? null
+        : grade.compile.ok
+          ? grade.results
+          : [{ input: "コンパイル", expected: "成功", actual: grade.compile.output, ok: false, label: null, hidden: false, error: null }];
+    } catch (error) {
+      if (error instanceof RunnerUnavailableError) {
+        console.error(error);
+        return c.json({ message: "実行環境に接続できないため、提出できませんでした。しばらくしてからお試しください" }, 503);
+      }
+      throw error;
+    }
+  }
+
   try {
     const result = await pool.query(
       `
-      INSERT INTO submissions (user_id, lesson_id, kind, content, auto_results)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO submissions (user_id, lesson_id, kind, content, auto_results, question_no)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id, kind, status, created_at
       `,
-      [userId, id.data, kind, JSON.stringify(content), autoResults ? JSON.stringify(autoResults) : null],
+      [userId, id.data, kind, JSON.stringify(content), autoResults ? JSON.stringify(autoResults) : null, c.get("questionNo")],
     );
     // 提出した内容が最新になるので、その種類の下書きは消す
-    await pool.query(`DELETE FROM drafts WHERE user_id = $1 AND lesson_id = $2 AND kind = $3`, [userId, id.data, kind]);
+    await pool.query(`DELETE FROM drafts WHERE user_id = $1 AND lesson_id = $2 AND kind = $3 AND question_no = $4`, [userId, id.data, kind, c.get("questionNo")]);
     return c.json({ submission: result.rows[0] }, 201);
   } catch (error) {
     // 23505 = 同時に 2 回押されたときなど、レビュー待ちが 2 件目になろうとした
     if ((error as { code?: string }).code === "23505") {
       return c.json({ message: "レビュー待ちの提出があります。結果が出るまでお待ちください" }, 409);
+    }
+    throw error;
+  }
+});
+
+/* ---------- コードの実行・採点（実行サーバーで本当に動かす） ---------- */
+
+const RUN_LIMIT = 30; // 1 人あたり 1 分間に
+const RUN_WINDOW_SECONDS = 60;
+
+/** 実行・採点の前の共通チェック。問題があれば返す応答を、なければ null */
+async function checkRunnable(userId: string, lessonId: number) {
+  if (!rateLimit(`run:${userId}`, RUN_LIMIT, RUN_WINDOW_SECONDS)) {
+    return { status: 429 as const, message: "実行の回数が多すぎます。少し待ってからお試しください" };
+  }
+  const stages = await getLessonStages(userId, lessonId);
+  if (!stages) return { status: 404 as const, message: "レッスンが見つかりません" };
+  if (stages.lessonStatus === "locked") return { status: 409 as const, message: "このレッスンはまだ解放されていません" };
+  return null;
+}
+
+//実行（コマンドライン引数と標準入力を指定して 1 回動かす）
+lessons.post("/:id/run", bodyLimit({ maxSize: 100 * 1024 }), async (c) => {
+  const id = lessonIdSchema.safeParse(c.req.param("id"));
+  const body = runCodeSchema.safeParse(await c.req.json().catch(() => null));
+  if (!id.success || !body.success) {
+    return c.json({ message: "入力内容が正しくありません" }, 400);
+  }
+  const problem = await checkRunnable(c.get("user").id, id.data);
+  if (problem) return c.json({ message: problem.message }, problem.status);
+
+  try {
+    const run = await runJava(body.data.code, [{ args: body.data.args, stdin: body.data.stdin }]);
+    return c.json({ compile: run.compile, result: run.results[0] ?? null });
+  } catch (error) {
+    if (error instanceof RunnerUnavailableError) {
+      console.error(error);
+      return c.json({ message: "実行環境に接続できません。しばらくしてからお試しください" }, 503);
+    }
+    throw error;
+  }
+});
+
+//採点（レッスンのテストケースで動かして、出力を比べる）
+lessons.post("/:id/grade", bodyLimit({ maxSize: 100 * 1024 }), async (c) => {
+  const id = lessonIdSchema.safeParse(c.req.param("id"));
+  const body = gradeCodeSchema.safeParse(await c.req.json().catch(() => null));
+  if (!id.success || !body.success) {
+    return c.json({ message: "入力内容が正しくありません" }, 400);
+  }
+  const problem = await checkRunnable(c.get("user").id, id.data);
+  if (problem) return c.json({ message: problem.message }, problem.status);
+
+  try {
+    const grade = await gradeCode(id.data, body.data.code, c.get("questionNo"));
+    if (!grade) {
+      return c.json({ message: "このレッスンにはテストケースがありません" }, 404);
+    }
+    return c.json(maskHidden(grade));
+  } catch (error) {
+    if (error instanceof RunnerUnavailableError) {
+      console.error(error);
+      return c.json({ message: "実行環境に接続できません。しばらくしてからお試しください" }, 503);
     }
     throw error;
   }

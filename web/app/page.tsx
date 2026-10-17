@@ -10,6 +10,7 @@ import {
   SparkIcon,
 } from "@/components/icons";
 import { SiteFooter } from "@/components/site-footer";
+import { SessionLink } from "@/components/session-link";
 import { WorkspacePreview } from "@/components/workspace-preview";
 import { getCatalog } from "@/api/lessons-api";
 import { pad } from "@/lib/lessons";
@@ -57,9 +58,7 @@ export default function MarketingPage() {
             教材・フローチャート・Javaコードを、ひとつの画面で。
           </p>
           <div className="mx-auto mt-8 flex max-w-90 flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center sm:gap-4">
-            <Link href="/login" className="btn btn-primary btn-primary-lg">
-              サインインして始める
-            </Link>
+            <SessionLink className="btn btn-primary btn-primary-lg" guestLabel="サインインして始める" />
             <Link
               href="#features"
               className="btn btn-secondary btn-secondary-lg"
@@ -208,12 +207,7 @@ export default function MarketingPage() {
             アカウントは研修担当者から配布されます。
           </p>
           <div className="mt-8">
-            <Link
-              href="/login"
-              className="btn btn-primary btn-primary-lg w-full max-w-90 sm:w-auto"
-            >
-              サインイン
-            </Link>
+            <SessionLink className="btn btn-primary btn-primary-lg w-full max-w-90 sm:w-auto" />
           </div>
         </section>
       </main>
@@ -230,7 +224,7 @@ async function CurriculumItems() {
       className="flex items-baseline gap-4 border-b border-hairline py-4"
     >
       <span className="type-caption-strong w-6 shrink-0 text-ink-muted-48">
-        {pad(lesson.id)}
+        {pad(lesson.number)}
       </span>
       <span className="type-body flex-1">{lesson.title}</span>
       <span className="type-caption shrink-0 text-ink-muted-48">

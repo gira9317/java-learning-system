@@ -58,14 +58,14 @@ async function UserDetail({ params }: Pick<PageProps<"/admin/users/[id]">, "para
               {lessons.map((l) => (
                 <tr key={l.id}>
                   <Td>
-                    <span className="text-ink-muted-48">Lesson {pad(l.id)} </span>
+                    <span className="text-ink-muted-48">Lesson {pad(l.number)} </span>
                     {l.title}
                   </Td>
                   <Td>
                     <StatusChip status={l.status} />
                   </Td>
                   <Td>
-                    <SubmissionChip status={l.flow_status} />
+                    {l.level !== "core" ? <span className="type-caption text-ink-muted-48">対象外</span> : <SubmissionChip status={l.flow_status} />}
                   </Td>
                   <Td>
                     <SubmissionChip status={l.code_status} />
@@ -85,7 +85,7 @@ async function UserDetail({ params }: Pick<PageProps<"/admin/users/[id]">, "para
                 <tr key={s.id}>
                   <Td className="whitespace-nowrap text-ink-muted-80">{formatDateTime(s.created_at)}</Td>
                   <Td>
-                    <span className="text-ink-muted-48">Lesson {pad(s.lesson_id)} </span>
+                    <span className="text-ink-muted-48">Lesson {pad(s.lesson_number)} / Q{s.question_no} </span>
                     {s.lesson_title}
                   </Td>
                   <Td>{kindLabel[s.kind]}</Td>

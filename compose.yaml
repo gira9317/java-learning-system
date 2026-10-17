@@ -1,4 +1,4 @@
-# デモ用：DB・API・画面をまとめて起動する（研修担当者に見てもらうとき）
+# デモ用：DB・API・実行サーバー・画面をまとめて起動する（研修担当者に見てもらうとき）
 #   docker compose up --build
 #   → http://localhost:3000
 # 開発するときは、これまでどおり api/ と web/ で npm run dev を使う（DB は api/compose.yaml）。
@@ -32,14 +32,38 @@ services:
       # HTTPS なしで見るため、クッキーの Secure は付けない
       COOKIE_SECURE: "false"
       SEED_INITIAL_PASSWORD: initial-pass
+      # 実行サーバー。合言葉は runner と同じ値にする
+      RUNNER_URL: http://runner:5000
+      RUNNER_TOKEN: demo-runner-token
     depends_on:
       db:
         condition: service_healthy
+      runner:
+        condition: service_started
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:4000/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
       interval: 5s
       timeout: 3s
       retries: 30
+
+  # 実行サーバー。受講者のコードを、隔離した使い捨ての JDK コンテナで動かす。
+  # コンテナを起動するためにホストの Docker（docker.sock）を使うので、ポートは外に公開しない
+  runner:
+    build: ./runner
+    restart: unless-stopped
+    environment:
+      PORT: "5000"
+      RUNNER_TOKEN: demo-runner-token
+      RUNNER_IMAGE: eclipse-temurin:21-jdk
+      RUNNER_CONCURRENCY: "4"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5000/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      # 初回は JDK のイメージを取得するため時間がかかる
+      start_period: 10m
 
   web:
     build:

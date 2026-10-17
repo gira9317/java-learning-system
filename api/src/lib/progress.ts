@@ -20,10 +20,10 @@ type Queryable = pg.Pool | pg.PoolClient;
  * 提出できるのは: レッスンが学習中で、その種類の最新が「未提出」か「差し戻し」のとき。
  * コードはさらに、フロー図が承認済みのときだけ。
  */
-export async function getLessonStages(userId: string, lessonId: number, db: Queryable = pool): Promise<LessonStages | null> {
+export async function getLessonStages(userId: string, lessonId: number, db: Queryable = pool, questionNo = 1): Promise<LessonStages | null> {
   const lesson = await db.query(
     `
-    SELECT COALESCE(p.status, 'locked') AS status
+    SELECT COALESCE(p.status, 'locked') AS status, l.level
     FROM lessons l
     LEFT JOIN lesson_progress p
       ON p.lesson_id = l.id
@@ -34,15 +34,16 @@ export async function getLessonStages(userId: string, lessonId: number, db: Quer
   );
   if (lesson.rowCount === 0) return null;
   const lessonStatus = lesson.rows[0].status;
+  const codeOnly = lesson.rows[0].level !== "core";
 
   const latest = await db.query(
     `
     SELECT DISTINCT ON (kind) kind, status
     FROM submissions
-    WHERE user_id = $1 AND lesson_id = $2
+    WHERE user_id = $1 AND lesson_id = $2 AND question_no = $3
     ORDER BY kind, created_at DESC
     `,
-    [userId, lessonId],
+    [userId, lessonId, questionNo],
   );
   const statusOf = (kind: SubmissionKind): StageStatus => latest.rows.find((r) => r.kind === kind)?.status ?? "none";
 
@@ -53,8 +54,8 @@ export async function getLessonStages(userId: string, lessonId: number, db: Quer
 
   return {
     lessonStatus,
-    flow: { status: flow, canSubmit: open && submittable(flow) },
-    code: { status: code, canSubmit: open && flow === "approved" && submittable(code) },
+    flow: { status: flow, canSubmit: !codeOnly && open && submittable(flow) },
+    code: { status: code, canSubmit: open && (codeOnly || flow === "approved") && submittable(code) },
   };
 }
 
@@ -64,6 +65,12 @@ export async function getLessonStages(userId: string, lessonId: number, db: Quer
  * 解放したレッスンの ID を返す。
  */
 export async function completeLesson(client: pg.PoolClient, userId: string, lessonId: number) {
+  const approved = await client.query(
+    `SELECT count(DISTINCT question_no)::int AS count FROM submissions
+     WHERE user_id = $1 AND lesson_id = $2 AND kind = 'code' AND status = 'approved'`,
+    [userId, lessonId],
+  );
+  if (approved.rows[0].count < 5) return null;
   await client.query(
     `
     INSERT INTO lesson_progress (user_id, lesson_id, status)

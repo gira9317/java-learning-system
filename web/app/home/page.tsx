@@ -6,6 +6,7 @@ import { CheckIcon, ChevronRightIcon, CodeIcon, FlowIcon, LockIcon } from "@/com
 import { SiteFooter } from "@/components/site-footer";
 import { StatusChip } from "@/components/status-chip";
 import { getLessons } from "@/api/lessons-api";
+import { getLectureChapters } from "@/api/lectures-api";
 import { getLessonSubmissions, type LessonSubmissions, type StageStatus } from "@/api/submissions-api";
 import { getCookieHeader, requireLearner } from "@/lib/session";
 import { pad, type Lesson } from "@/lib/lessons";
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
   title: "ホーム — Java Training",
 };
 
-// 受講者のホーム。「続きから」→ 進み具合 → コード演習の順で、スマホで縦に読み下せる構成。
+// 受講者のホーム。「続きから」→ 進み具合 → 講義 → コード演習の順で読み下せる構成。
 export default function HomePage() {
   return (
     <>
@@ -49,7 +50,10 @@ function HomeSkeleton() {
 async function HomeContent() {
   await requireLearner();
   const cookie = await getCookieHeader();
-  const lessons = await getLessons({ cookie });
+  const [lessons, chapters] = await Promise.all([
+    getLessons({ cookie }),
+    getLectureChapters({ cookie }),
+  ]);
   const completed = lessons.filter((l) => l.status === "completed");
   const current = lessons.find((l) => l.status === "in-progress");
   const nextLocked = lessons.find((l) => l.status === "locked");
@@ -91,12 +95,57 @@ async function HomeContent() {
             <div>
               <dt className="type-fine text-ink-muted-48">次に解放</dt>
               <dd className="type-body-strong mt-1">
-                {nextLocked ? `Lesson ${pad(nextLocked.id)}` : "—"}
+                {nextLocked ? `Lesson ${pad(nextLocked.number)}` : "—"}
               </dd>
             </div>
           </dl>
         </section>
       </div>
+
+      <section id="lectures" className="mt-14 scroll-mt-14 sm:mt-16" aria-labelledby="lectures-heading">
+        <div className="flex flex-wrap items-baseline justify-between gap-4">
+          <h2 id="lectures-heading" className="type-display-md">講義</h2>
+          <Link
+            href="/lectures"
+            className="type-caption-strong inline-flex items-center gap-1 rounded-sm text-ink-muted-80 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-focus"
+          >
+            講義一覧を見る <ChevronRightIcon size={16} />
+          </Link>
+        </div>
+        <p className="type-body mt-2 text-ink-muted-80">解説動画と資料で、Javaの基礎を学びましょう。</p>
+        {chapters.length === 0 ? (
+          <p className="type-body mt-5 rounded-lg border border-hairline bg-canvas p-6 text-ink-muted-48">
+            講義は準備中です。
+          </p>
+        ) : (
+          <ul className="mt-5 grid gap-3 md:grid-cols-2 md:gap-4">
+            {chapters.map((chapter) => {
+              const done = chapter.lectures.filter((lecture) => lecture.completed).length;
+              const available = chapter.lectures.filter((lecture) => lecture.has_video || lecture.has_material);
+              const next = available.find((lecture) => !lecture.completed) ?? available[0];
+
+              return (
+                <li key={chapter.id}>
+                  <Link
+                    href={next ? `/lectures/${next.id}` : "/lectures"}
+                    className="flex h-full items-center gap-4 rounded-lg border border-hairline bg-canvas p-5 hover:bg-pearl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-focus"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="type-fine text-ink-muted-48">第{chapter.id}章</p>
+                      <h3 className="type-body-strong mt-1">{chapter.title}</h3>
+                      <p className="type-caption mt-2 text-ink-muted-48">
+                        {done} / {chapter.lectures.length} 講義完了
+                        {available.length === 0 && " ・ 準備中"}
+                      </p>
+                    </div>
+                    <ChevronRightIcon size={18} className="shrink-0 text-ink-muted-48" />
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
 
       {/* コード演習 */}
       <section id="curriculum" className="mt-14 scroll-mt-14 sm:mt-16" aria-labelledby="curriculum-heading">
@@ -128,20 +177,20 @@ const stageText: Record<StageStatus, string> = {
 function ContinueCard({ lesson, submissions }: { lesson: Lesson; submissions: LessonSubmissions }) {
   // フロー図 → コードの順に提出し、それぞれ研修担当者の承認を受ける
   const tasks = [
-    { icon: FlowIcon, label: "フロー図", status: submissions.flow.status },
+    ...(lesson.level !== "core" ? [] : [{ icon: FlowIcon, label: "フロー図", status: submissions.flow.status }]),
     { icon: CodeIcon, label: "Javaコード", status: submissions.code.status },
   ];
   const rejected = [submissions.latest.flow, submissions.latest.code].find((s) => s?.status === "rejected");
 
   return (
-    <section className="on-dark flex flex-col rounded-lg bg-tile-1 p-6 text-white sm:p-8" aria-labelledby="continue-heading">
-      <p className="type-caption-strong text-body-muted">続きから — Lesson {pad(lesson.id)}</p>
+    <section id="continue" className="on-dark flex flex-col rounded-lg bg-tile-1 p-6 text-white sm:p-8" aria-labelledby="continue-heading">
+      <p className="type-caption-strong text-body-muted">続きから — Lesson {pad(lesson.number)}</p>
       <h2 id="continue-heading" className="type-display-md mt-2">
         {lesson.title}
       </h2>
       <p className="type-body mt-2 text-body-muted">{lesson.summary}</p>
 
-      <ul className="mt-6 grid grid-cols-2 gap-2">
+      <ul className={`mt-6 grid gap-2 ${tasks.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
         {tasks.map((task) => (
           <li key={task.label} className="rounded-sm bg-white/[0.06] px-3 py-3">
             <div className="flex items-center justify-between text-body-muted">
@@ -195,11 +244,11 @@ function LessonRow({ lesson }: { lesson: Lesson }) {
               : "bg-parchment text-ink-muted-48"
         }`}
       >
-        {lesson.status === "completed" ? <CheckIcon size={16} strokeWidth={2.4} /> : locked ? <LockIcon size={15} /> : pad(lesson.id)}
+        {lesson.status === "completed" ? <CheckIcon size={16} strokeWidth={2.4} /> : locked ? <LockIcon size={15} /> : pad(lesson.number)}
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="type-fine text-ink-muted-48">Lesson {pad(lesson.id)}</span>
+          <span className="type-fine text-ink-muted-48">Lesson {pad(lesson.number)}{lesson.level === "intro" && " · 入門"}</span>
           <span className="hidden sm:inline">
             <StatusChip status={lesson.status} />
           </span>

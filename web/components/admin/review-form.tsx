@@ -59,7 +59,7 @@ export function ReviewForm({ submissionId, kind }: { submissionId: string; kind:
       <p className="type-fine text-ink-muted-48">
         {kind === "flow"
           ? "承認すると、受講者はコードを提出できるようになります。"
-          : "承認すると、このレッスンは完了になり、次のレッスンが解放されます。"}
+          : "全5問のコードが承認されると、このレッスンが完了し、次のレッスンが解放されます。"}
       </p>
     </div>
   );

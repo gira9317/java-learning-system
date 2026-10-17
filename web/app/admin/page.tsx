@@ -54,7 +54,7 @@ async function ReviewLists() {
                   <span className="ml-2 text-ink-muted-48">{s.employee_no}</span>
                 </Td>
                 <Td>
-                  <span className="text-ink-muted-48">Lesson {pad(s.lesson_id)} </span>
+                  <span className="text-ink-muted-48">Lesson {pad(s.lesson_number)} / Q{s.question_no} </span>
                   {s.lesson_title}
                 </Td>
                 <Td>{kindLabel[s.kind]}</Td>
@@ -86,7 +86,7 @@ async function ReviewLists() {
                   <span className="ml-2 text-ink-muted-48">{s.employee_no}</span>
                 </Td>
                 <Td>
-                  <span className="text-ink-muted-48">Lesson {pad(s.lesson_id)} </span>
+                  <span className="text-ink-muted-48">Lesson {pad(s.lesson_number)} / Q{s.question_no} </span>
                   {s.lesson_title}
                 </Td>
                 <Td>{kindLabel[s.kind]}</Td>

@@ -6,6 +6,7 @@ import { pool } from "../db.js";
 import { createAccount } from "../lib/accounts.js";
 import { generateInitialPassword } from "../lib/password.js";
 import { completeLesson } from "../lib/progress.js";
+import { getPublicExercises } from "../lib/exercises.js";
 import { authMiddleware, requireAdmin, requirePasswordChanged } from "../middleware/authMiddleware.js";
 import { createUserSchema } from "../schemas/admin.js";
 import { lectureIdSchema, updateLectureSchema } from "../schemas/lectures.js";
@@ -88,7 +89,7 @@ admin.get("/users/:id", async (c) => {
 
   const lessons = await pool.query(
     `
-    SELECT l.id, l.title, COALESCE(p.status, 'locked') AS status,
+    SELECT l.id, ROW_NUMBER() OVER (ORDER BY l.sort_order, l.id)::int AS number, l.level, l.title, COALESCE(p.status, 'locked') AS status,
            (SELECT s.status FROM submissions s WHERE s.user_id = $1 AND s.lesson_id = l.id AND s.kind = 'flow'
              ORDER BY s.created_at DESC LIMIT 1) AS flow_status,
            (SELECT s.status FROM submissions s WHERE s.user_id = $1 AND s.lesson_id = l.id AND s.kind = 'code'
@@ -102,7 +103,7 @@ admin.get("/users/:id", async (c) => {
 
   const submissions = await pool.query(
     `
-    SELECT s.id, s.lesson_id, l.title AS lesson_title, s.kind, s.status, s.review_comment, s.reviewed_at, s.created_at
+    SELECT s.id, s.lesson_id, s.question_no, (SELECT count(*)::int FROM lessons previous WHERE previous.sort_order <= l.sort_order) AS lesson_number, l.title AS lesson_title, s.kind, s.status, s.review_comment, s.reviewed_at, s.created_at
     FROM submissions s
     JOIN lessons l ON l.id = s.lesson_id
     WHERE s.user_id = $1
@@ -160,8 +161,8 @@ admin.get("/submissions", async (c) => {
 
   const result = await pool.query(
     `
-    SELECT s.id, s.kind, s.status, s.created_at, s.reviewed_at,
-           s.lesson_id, l.title AS lesson_title,
+    SELECT s.id, s.question_no, s.kind, s.status, s.created_at, s.reviewed_at,
+           s.lesson_id, (SELECT count(*)::int FROM lessons previous WHERE previous.sort_order <= l.sort_order) AS lesson_number, l.title AS lesson_title,
            u.id AS user_id, u.employee_no, u.name
     FROM submissions s
     JOIN lessons l ON l.id = s.lesson_id
@@ -184,7 +185,7 @@ admin.get("/submissions/:id", async (c) => {
 
   const result = await pool.query(
     `
-    SELECT s.*, l.title AS lesson_title,
+    SELECT s.*, (SELECT count(*)::int FROM lessons previous WHERE previous.sort_order <= l.sort_order) AS lesson_number, l.title AS lesson_title,
            u.employee_no, u.name,
            r.name AS reviewer_name
     FROM submissions s
@@ -198,7 +199,9 @@ admin.get("/submissions/:id", async (c) => {
   if (result.rowCount === 0) {
     return c.json({ message: "提出が見つかりません" }, 404);
   }
-  return c.json({ submission: result.rows[0] });
+  const submission = result.rows[0];
+  const question = (await getPublicExercises(submission.lesson_id)).find((q) => q.number === submission.question_no) ?? null;
+  return c.json({ submission: { ...submission, question } });
 });
 
 //承認。コードの承認なら、レッスンを完了にして次のレッスンを解放する
@@ -251,10 +254,13 @@ async function review(reviewerId: string, submissionId: string, status: "approve
     }
 
     const { user_id, lesson_id, kind } = result.rows[0];
+    // 同じレッスンの最終承認が同時に行われても完了判定を取りこぼさない。
+    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [`${user_id}:${lesson_id}`]);
     const unlocked = status === "approved" && kind === "code" ? await completeLesson(client, user_id, lesson_id) : null;
+    const progress = await client.query(`SELECT status FROM lesson_progress WHERE user_id = $1 AND lesson_id = $2`, [user_id, lesson_id]);
 
     await client.query("COMMIT");
-    return { status, lessonCompleted: status === "approved" && kind === "code", unlocked };
+    return { status, lessonCompleted: progress.rows[0]?.status === "completed", unlocked };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

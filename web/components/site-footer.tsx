@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SessionLink } from "./session-link";
 
 const columns = [
   {
@@ -6,8 +7,7 @@ const columns = [
     links: [
       { href: "/home", label: "ホーム" },
       { href: "/lectures", label: "講義" },
-      { href: "/home#curriculum", label: "コード演習" },
-      { href: "/lessons/3", label: "学習を再開" },
+      { href: "/curriculm", label: "コード演習" },
     ],
   },
   {
@@ -35,9 +35,13 @@ export function SiteFooter() {
               <ul>
                 {col.links.map((link) => (
                   <li key={link.label}>
-                    <Link href={link.href} className="type-caption leading-[2.2] hover:underline">
-                      {link.label}
-                    </Link>
+                    {link.href === "/login" ? (
+                      <SessionLink className="type-caption leading-[2.2] hover:underline" />
+                    ) : (
+                      <Link href={link.href} className="type-caption leading-[2.2] hover:underline">
+                        {link.label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>

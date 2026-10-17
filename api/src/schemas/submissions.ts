@@ -42,6 +42,18 @@ export const createSubmissionSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
+// 「実行」ボタン: コマンドライン引数と標準入力を指定して 1 回動かす
+export const runCodeSchema = z.object({
+  code: z.string().min(1).max(20_000),
+  args: z.array(z.string().max(200)).max(10).default([]),
+  stdin: z.string().max(10_000).default(""),
+});
+
+// 「採点する」ボタン
+export const gradeCodeSchema = z.object({
+  code: z.string().min(1).max(20_000),
+});
+
 // 下書き（作業途中）。形は提出と同じで、コードは空でもよい
 export const draftKindSchema = z.enum(["flow", "code"]);
 export const draftContentSchemas = { flow: flowContentSchema, code: codeContentSchema } as const;

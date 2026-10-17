@@ -11,6 +11,7 @@ import { kindLabel, SubmissionChip } from "@/components/admin/submission-chip";
 import { CheckIcon, XIcon } from "@/components/icons";
 import { FlowPreview } from "@/components/workspace/flow-preview";
 import { CodeView } from "@/components/workspace/java-editor";
+import { ProblemStatement } from "@/components/workspace/problem-statement";
 import { formatDateTime } from "@/lib/format";
 import { pad } from "@/lib/lessons";
 import { getCookieHeader, requireAdmin } from "@/lib/session";
@@ -47,7 +48,7 @@ async function SubmissionDetail({ params }: Pick<PageProps<"/admin/submissions/[
       <header className="mt-4 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="type-caption-strong text-ink-muted-48">
-            Lesson {pad(s.lesson_id)} · {s.lesson_title}
+            Lesson {pad(s.lesson_number)} · 第{s.question_no}問 · {s.lesson_title}
           </p>
           <h1 className="type-display-lg mt-1">
             {kindLabel[s.kind]}の提出
@@ -75,9 +76,14 @@ async function SubmissionDetail({ params }: Pick<PageProps<"/admin/submissions/[
         </Panel>
 
         <div className="space-y-6">
+          {s.question && <Panel title="問題文"><ProblemStatement question={s.question} /></Panel>}
           <Panel title="自動採点（参考）">
             <AutoResults kind={s.kind} results={s.auto_results} />
-            <p className="type-fine mt-3 text-ink-muted-48">受講者のブラウザで採点した結果です。判定は中身を見て行ってください。</p>
+            <p className="type-fine mt-3 text-ink-muted-48">
+              {s.kind === "code"
+                ? "提出時にサーバーで実際に実行して採点した結果です（【非公開】は受講者に入力と期待する出力を見せていないテストケース）。"
+                : "受講者のブラウザで採点した結果です。判定は中身を見て行ってください。"}
+            </p>
           </Panel>
 
           <Panel title="レビュー">
@@ -107,10 +113,13 @@ function AutoResults({ kind, results }: { kind: "flow" | "code"; results: Record
     <ul className="space-y-2">
       {results.map((r, i) => {
         const ok = r.ok === true;
+        const error = typeof r.error === "string" ? r.error : null;
         const text =
           kind === "flow"
             ? String(r.label ?? "")
-            : `入力 ${String(r.input ?? "")} → 期待「${String(r.expected ?? "")}」${ok ? "" : ` / 実際「${String(r.actual ?? "")}」`}`;
+            : `${r.hidden ? "【非公開】" : ""}${r.label ? `【${String(r.label)}】` : ""}入力 ${String(r.input ?? "")} → 期待「${String(r.expected ?? "")}」${
+                ok ? "" : error ? ` / ${error}` : ` / 実際「${String(r.actual ?? "")}」`
+              }`;
         return (
           <li key={i} className="flex items-start gap-2 type-caption">
             <span className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full text-white ${ok ? "bg-success" : "bg-danger"}`}>

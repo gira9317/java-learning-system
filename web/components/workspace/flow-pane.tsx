@@ -81,6 +81,7 @@ const DEFAULT_LABEL: Record<FlowNodeType, string> = { start: "開始", end: "終
  * ルールベース採点も備える。
  */
 type FlowPaneProps = {
+  requireScoreCondition?: boolean;
   onGraded: (checks: FlowCheck[] | null) => void;
   /** 開いたときの内容（下書き、なければ最後に提出したフロー図） */
   initial?: FlowContent;
@@ -98,7 +99,7 @@ export function FlowPane(props: FlowPaneProps) {
   );
 }
 
-function FlowEditor({ onGraded, initial, submit, onSubmit, saveDraft }: FlowPaneProps) {
+function FlowEditor({ onGraded, initial, submit, onSubmit, saveDraft, requireScoreCondition = false }: FlowPaneProps) {
   const [nodes, setNodes, onNodesChangeBase] = useNodesState<ShapeNode>((initial?.nodes ?? initialNodes).map(toShapeNode));
   const [edges, setEdges, onEdgesChangeBase] = useEdgesState<BranchEdge>((initial?.edges ?? initialEdges).map(toBranchEdge));
   const [checks, setChecks] = useState<FlowCheck[] | null>(null);
@@ -172,7 +173,7 @@ function FlowEditor({ onGraded, initial, submit, onSubmit, saveDraft }: FlowPane
   }
 
   function grade() {
-    const result = gradeFlow(nodes.map(fromShapeNode), edges.map(fromBranchEdge));
+    const result = gradeFlow(nodes.map(fromShapeNode), edges.map(fromBranchEdge), requireScoreCondition);
     const issueIds = new Set(result.flatMap((c) => (c.ok ? [] : (c.nodeIds ?? []))));
     setNodes((ns) => ns.map((n) => ({ ...n, data: { ...n.data, issue: issueIds.has(n.id) } })));
     setChecks(result);

@@ -1,0 +1,63 @@
+{
+  "16": [
+    {
+      "title": "名前を読めば意味が分かる計算にしよう",
+      "prompt": "## やること\n\n元のコードは正しく動きます。`a`、`b`、`c` と `f` の名前を、意味が伝わる名前へ変更してください。引数0は単価（円）、引数1は個数です。表示は `合計: 2400円` の形式を保ちます。\n\n## 仕様\n\n単価は0〜10000、個数は1〜100の整数です。合計は単価×個数。入力は必ずこの範囲で渡されるため、入力エラーの処理は追加不要です。\n\n## ヒント\n\n単価なら `unitPriceYen`、個数なら `quantity` など。メソッドは何を計算するかが分かる名前にします。名前を変えたら、呼び出す場所も合わせて直しましょう。\n\n## レビューで確認すること\n\n- 変数名から単価・個数・合計と単位が分かるか\n- メソッド名から受け持つ計算が分かるか\n- 意味をコメントで補うだけでなく名前自体を改善したか\n\n**改善前も採点に通ります。自動採点は動作を確認し、読みやすさは担当者がレビューします。**",
+      "starterCode": "public class Main {\n    public static void main(String[] args) {\n        int a = Integer.parseInt(args[0]);\n        int b = Integer.parseInt(args[1]);\n        int c = f(a, b);\n        System.out.println(\"合計: \" + c + \"円\");\n    }\n\n    static int f(int a, int b) {\n        return a * b;\n    }\n}\n",
+      "tests": [
+        {"args":["800","3"],"expected":"合計: 2400円","label":"単価800円を3個"},
+        {"args":["0","1"],"expected":"合計: 0円","label":"無料の商品"},
+        {"args":["120","5"],"expected":"合計: 600円","hidden":true},
+        {"args":["10000","100"],"expected":"合計: 1000000円","hidden":true}
+      ]
+    },
+    {
+      "title": "深いifを早期リターンで整理しよう",
+      "prompt": "## やること\n\n`registrationMessage` の入れ子になった条件を整理します。進めない条件を先に `return` し、最後に登録できる場合を書く形にしてください。\n\n## 仕様\n\n引数0は年齢（-1〜120の整数）、引数1は保護者の同意（`yes` または `no`）です。年齢が負なら `入力エラー`。年齢が0〜17で同意がなければ `同意が必要`。それ以外は `登録できます` と表示します。**18歳以上は同意不要です。**\n\n## ヒント\n\n最初に年齢が負かを確認し、次に未成年で同意がないかを確認します。`return` は今のメソッドを終了します。17歳と18歳の両方を試しましょう。\n\n## レビューで確認すること\n\n- 条件の優先順位と元の仕様を保ったか\n- 正常に登録できる流れを追いやすくしたか\n- `if` を減らすために複雑な三項演算子へ詰め込んでいないか\n\n**元のコードでも採点は通ります。構造の改善をレビューします。**",
+      "starterCode": "public class Main {\n    public static void main(String[] args) {\n        int age = Integer.parseInt(args[0]);\n        boolean hasConsent = args[1].equals(\"yes\");\n        System.out.println(registrationMessage(age, hasConsent));\n    }\n\n    static String registrationMessage(int age, boolean hasConsent) {\n        if (age >= 0) {\n            if (age < 18) {\n                if (hasConsent) {\n                    return \"登録できます\";\n                } else {\n                    return \"同意が必要\";\n                }\n            } else {\n                return \"登録できます\";\n            }\n        } else {\n            return \"入力エラー\";\n        }\n    }\n}\n",
+      "tests": [
+        {"args":["17","no"],"expected":"同意が必要","label":"未成年・同意なし"},
+        {"args":["18","no"],"expected":"登録できます","label":"18歳・同意なし"},
+        {"args":["-1","yes"],"expected":"入力エラー","hidden":true},
+        {"args":["-1","no"],"expected":"入力エラー","hidden":true},
+        {"args":["17","yes"],"expected":"登録できます","hidden":true},
+        {"args":["0","no"],"expected":"同意が必要","hidden":true},
+        {"args":["120","no"],"expected":"登録できます","hidden":true}
+      ]
+    },
+    {
+      "title": "計算・表示を分けて、数字とコメントを見直そう",
+      "prompt": "## やること\n\n`main` に集まった商品代金・送料の計算・表示文の組み立てを、意味のあるメソッドへ分けます。送料の数字に定数名を付け、間違ったコメントも直してください。\n\n## 仕様\n\n引数0は単価（0〜10000円）、引数1は個数（1〜100）。商品代金は単価×個数。商品代金が**3000円以上**なら送料0円、未満なら500円です。出力は `商品代金: 2400円 / 送料: 500円 / 合計: 2900円` の1行。\n\n## ヒント\n\n`calculateSubtotal`、`calculateShippingFee`、`formatReceipt` などに分けられます。定数は例として `static final int FREE_SHIPPING_THRESHOLD_YEN = 3000;` と宣言できます。計算するメソッドの中で表示せず、値を返しましょう。\n\n## レビューで確認すること\n\n- 計算と表示の役割が分かれているか\n- 3000と500の意味が名前から分かるか\n- 元コメントの「3000円を超えたら」が仕様と違うことに気付き、修正・削除したか\n- コードの言い換えより、必要な背景を説明しているか\n\n**仕様・出力を変えず、構造を改善してください。**",
+      "starterCode": "public class Main {\n    public static void main(String[] args) {\n        int unitPriceYen = Integer.parseInt(args[0]);\n        int quantity = Integer.parseInt(args[1]);\n        int subtotalYen = unitPriceYen * quantity;\n        // 商品代金が3000円を超えたら送料無料。\n        int shippingFeeYen = subtotalYen >= 3000 ? 0 : 500;\n        int totalYen = subtotalYen + shippingFeeYen;\n        // 文字列を表示する。\n        System.out.println(\"商品代金: \" + subtotalYen + \"円 / 送料: \" + shippingFeeYen + \"円 / 合計: \" + totalYen + \"円\");\n    }\n}\n",
+      "tests": [
+        {"args":["800","3"],"expected":"商品代金: 2400円 / 送料: 500円 / 合計: 2900円","label":"送料あり"},
+        {"args":["1000","3"],"expected":"商品代金: 3000円 / 送料: 0円 / 合計: 3000円","label":"ちょうど3000円"},
+        {"args":["2999","1"],"expected":"商品代金: 2999円 / 送料: 500円 / 合計: 3499円","hidden":true},
+        {"args":["3001","1"],"expected":"商品代金: 3001円 / 送料: 0円 / 合計: 3001円","hidden":true},
+        {"args":["0","1"],"expected":"商品代金: 0円 / 送料: 500円 / 合計: 500円","hidden":true}
+      ]
+    },
+    {
+      "title": "何でも屋のクラスから、注文と表示を分けよう",
+      "prompt": "## やること\n\n`ShopManager` が、注文データ・計算・表示文の作成・画面出力をすべて抱えています。この小さな『神クラスの芽』を、`Order`（注文データと商品代金の計算）、`ReceiptFormatter`（表示文を作って返す）、`Main`（入力と画面への出力）へ分けてください。\n\n## 仕様\n\n引数0は商品名（空白のない文字列）、引数1は単価（0〜10000円）、引数2は個数（1〜100）。出力は `ノート x 3 = 600円` の形式です。この問に送料はありません。\n\n## ヒント\n\n`Order` はコンストラクタで商品名・単価・個数を受け取ります。フィールドは `private final` にし、必要な情報を取得するメソッドと `calculateSubtotal()` を用意できます。`ReceiptFormatter.format(Order order)` は文字列を返し、`println` は `main` に置きます。同じファイルにクラスを追加できますが、`public` は `Main` だけにします。\n\n## レビューで確認すること\n\n- 商品代金の計算変更と、表示形式の変更で触る場所が分かれたか\n- クラス名を変えただけ、巨大なUtilへ移しただけになっていないか\n- フィールドを直接変更せず必要な操作を通して利用しているか\n- 今回不要な在庫管理・メール送信などを増やしていないか\n\n**小さな役割分けを練習します。分割数を増やすことが目的ではありません。**",
+      "starterCode": "public class Main {\n    public static void main(String[] args) {\n        ShopManager manager = new ShopManager(args[0], Integer.parseInt(args[1]), Integer.parseInt(args[2]));\n        manager.printReceipt();\n    }\n}\n\nclass ShopManager {\n    String productName;\n    int unitPriceYen;\n    int quantity;\n\n    ShopManager(String productName, int unitPriceYen, int quantity) {\n        this.productName = productName;\n        this.unitPriceYen = unitPriceYen;\n        this.quantity = quantity;\n    }\n\n    void printReceipt() {\n        int subtotalYen = unitPriceYen * quantity;\n        String text = productName + \" x \" + quantity + \" = \" + subtotalYen + \"円\";\n        System.out.println(text);\n    }\n}\n",
+      "tests": [
+        {"args":["ノート","200","3"],"expected":"ノート x 3 = 600円","label":"注文の伝票"},
+        {"args":["ペン","120","1"],"expected":"ペン x 1 = 120円"},
+        {"args":["サンプル","0","2"],"expected":"サンプル x 2 = 0円","hidden":true},
+        {"args":["Book","10000","100"],"expected":"Book x 100 = 1000000円","hidden":true}
+      ]
+    },
+    {
+      "title": "getの連鎖をやめて、必要な情報を頼もう",
+      "prompt": "## やること\n\n`main` が `user.getProfile().getAddress().getCity()` と、相手の中身をたどっています。`User` に `getShippingCity()` という窓口を作り、`main` はそのメソッドだけを呼ぶようにしてください。さらに `Profile` にも `getShippingCity()` を作り、`User` は `Profile` の内部にある `Address` を直接たどらないようにします。\n\n## 仕様\n\n引数0は配送先の市名（空白のない文字列）。出力は `配送先: 横浜市` の形式を保ちます。各オブジェクトは必ず存在し、nullの入力はありません。コンストラクタで組み立てる部分はそのままで構いません。\n\n## ヒント\n\n`Profile.getShippingCity()` は `address.getCity()` を返します。`User.getShippingCity()` は `profile.getShippingCity()` を返します。内部の各getterが不要になったら削除しても構いません。\n\n## レビューで確認すること\n\n- `main` がProfileやAddressを取り出さずに情報を取得できるか\n- `User` がProfileの内部構造をたどらずに頼めるか\n- 長い式を複数の変数に分けただけになっていないか\n- 使わないgetterを大量に中継していないか\n\n**あらゆるメソッドチェーンが悪いわけではありません。今回は別々のオブジェクトの内部構造を知りすぎる依存を減らす練習です。**",
+      "starterCode": "public class Main {\n    public static void main(String[] args) {\n        Address address = new Address(args[0]);\n        Profile profile = new Profile(address);\n        User user = new User(profile);\n        System.out.println(\"配送先: \" + user.getProfile().getAddress().getCity());\n    }\n}\n\nclass User {\n    private final Profile profile;\n    User(Profile profile) { this.profile = profile; }\n    Profile getProfile() { return profile; }\n}\n\nclass Profile {\n    private final Address address;\n    Profile(Address address) { this.address = address; }\n    Address getAddress() { return address; }\n}\n\nclass Address {\n    private final String city;\n    Address(String city) { this.city = city; }\n    String getCity() { return city; }\n}\n",
+      "tests": [
+        {"args":["横浜市"],"expected":"配送先: 横浜市","label":"配送先の市名"},
+        {"args":["大阪市"],"expected":"配送先: 大阪市"},
+        {"args":["札幌市"],"expected":"配送先: 札幌市","hidden":true},
+        {"args":["City-A"],"expected":"配送先: City-A","hidden":true}
+      ]
+    }
+  ]
+}

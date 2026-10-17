@@ -31,10 +31,10 @@ export function LessonHeader({
     <div className="frosted z-20 flex h-[52px] shrink-0 items-center justify-between gap-3 border-b border-black/[0.08] px-4 sm:px-6">
       <div className="flex min-w-0 items-baseline gap-3">
         <span className="hidden type-caption shrink-0 text-ink-muted-48 sm:inline">
-          Lesson {pad(lesson.id)} / {total}
+          Lesson {pad(lesson.number)} / {total}
         </span>
         <h1 className="truncate type-body-strong sm:type-tagline">
-          <span className="text-ink-muted-48 sm:hidden">{pad(lesson.id)} </span>
+          <span className="text-ink-muted-48 sm:hidden">{pad(lesson.number)} </span>
           {lesson.title}
         </h1>
       </div>

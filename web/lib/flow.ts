@@ -87,7 +87,7 @@ export function edgePath(edge: FlowEdge, nodes: FlowNode[]) {
 }
 
 /** 構造化ノードによるルールベース採点（MVP の暫定方式） */
-export function gradeFlow(nodes: FlowNode[], edges: FlowEdge[]): FlowCheck[] {
+export function gradeFlow(nodes: FlowNode[], edges: FlowEdge[], requireScoreCondition = true): FlowCheck[] {
   const starts = nodes.filter((n) => n.type === "start");
   const ends = nodes.filter((n) => n.type === "end");
   const decisions = nodes.filter((n) => n.type === "decision");
@@ -118,8 +118,8 @@ export function gradeFlow(nodes: FlowNode[], edges: FlowEdge[]): FlowCheck[] {
   return [
     { label: "開始ノードが 1 つある", ok: starts.length === 1, nodeIds: starts.length > 1 ? starts.map((n) => n.id) : [] },
     { label: "終了ノードがある", ok: ends.length >= 1 },
-    { label: "条件分岐で点数を判定している", ok: hasCondition, nodeIds: hasCondition ? [] : decisions.map((d) => d.id) },
-    { label: "条件分岐に True / False の両方の接続がある", ok: decisions.length > 0 && branchIssues.length === 0, nodeIds: branchIssues },
+    ...(requireScoreCondition ? [{ label: "条件分岐で点数を判定している", ok: hasCondition, nodeIds: hasCondition ? [] : decisions.map((d) => d.id) }] : []),
+    { label: "条件分岐がある場合、True / False の両方の接続がある", ok: branchIssues.length === 0, nodeIds: branchIssues },
     { label: "すべての経路が終了ノードに到達する", ok: ends.length > 0 && deadEnds.length === 0, nodeIds: deadEnds },
   ];
 }

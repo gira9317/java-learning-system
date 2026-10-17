@@ -1,4 +1,5 @@
 import type { LessonStatus } from "@/lib/lessons";
+import type { ExerciseQuestion } from "./lessons-api";
 import { request } from "./client";
 import type { CodeContent, FlowContent, SubmissionKind, SubmissionStatus } from "./submissions-api";
 
@@ -22,6 +23,8 @@ export type AdminUserDetail = {
   user: Pick<AdminUserRow, "id" | "employee_no" | "name" | "role" | "must_change_password" | "created_at">;
   lessons: {
     id: number;
+    number: number;
+    level: "intro" | "core" | "refactor";
     title: string;
     status: LessonStatus;
     flow_status: SubmissionStatus | null;
@@ -30,6 +33,8 @@ export type AdminUserDetail = {
   submissions: {
     id: string;
     lesson_id: number;
+  lesson_number: number;
+    question_no: number;
     lesson_title: string;
     kind: SubmissionKind;
     status: SubmissionStatus;
@@ -46,6 +51,8 @@ export type AdminSubmissionRow = {
   created_at: string;
   reviewed_at: string | null;
   lesson_id: number;
+  lesson_number: number;
+  question_no: number;
   lesson_title: string;
   user_id: string;
   employee_no: string;
@@ -53,6 +60,7 @@ export type AdminSubmissionRow = {
 };
 
 export type AdminSubmissionDetail = AdminSubmissionRow & {
+  question: ExerciseQuestion | null;
   content: FlowContent | CodeContent;
   auto_results: Record<string, unknown>[] | null;
   review_comment: string | null;

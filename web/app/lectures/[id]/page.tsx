@@ -6,7 +6,7 @@ import { getLecture } from "@/api/lectures-api";
 import { GlobalNav } from "@/components/global-nav";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
 import { CompleteToggle } from "@/components/lecture/complete-toggle";
-import { Markdown } from "@/components/lecture/markdown";
+import { LectureMaterial } from "@/components/lecture/lecture-material";
 import { VideoEmbed, VideoPlaceholder } from "@/components/lecture/video-embed";
 import { getCookieHeader, requireUser } from "@/lib/session";
 
@@ -45,9 +45,9 @@ async function LectureContent({ params }: Pick<PageProps<"/lectures/[id]">, "par
   });
 
   return (
-    <main className="flex-1 bg-canvas lg:grid lg:h-[calc(100dvh-44px)] lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+    <main className="flex-1 bg-canvas lg:grid lg:h-[calc(100dvh-44px)] lg:min-h-0 lg:flex-none lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:overflow-hidden">
       {/* 左: 解説動画（PC では固定し、資料だけをスクロールする） */}
-      <section className="border-hairline bg-parchment px-4 py-6 sm:px-6 lg:overflow-y-auto lg:border-r lg:py-8" aria-label="解説動画">
+      <section className="min-w-0 border-hairline bg-parchment px-4 py-6 sm:px-6 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:border-r lg:py-8" aria-label="解説動画">
         <nav className="type-caption text-ink-muted-48" aria-label="現在の位置">
           <Link href="/lectures" className="text-link">
             講義
@@ -84,9 +84,9 @@ async function LectureContent({ params }: Pick<PageProps<"/lectures/[id]">, "par
       </section>
 
       {/* 右: 資料 */}
-      <section className="px-4 py-8 sm:px-6 lg:overflow-y-auto lg:px-10" aria-label="資料">
-        <article className="mx-auto max-w-[680px]">
-          <p className="type-caption-strong text-ink-muted-48">
+      <section className="min-w-0 border-t border-hairline lg:flex lg:min-h-0 lg:flex-col lg:border-t-0" aria-labelledby="material-heading">
+        <header className="shrink-0 border-b border-hairline bg-canvas px-4 py-4 sm:px-6 lg:px-10">
+          <h2 id="material-heading" className="type-caption-strong text-ink-muted-48">
             資料
             {lecture.page_start && lecture.page_end && (
               <span className="font-normal">
@@ -94,17 +94,25 @@ async function LectureContent({ params }: Pick<PageProps<"/lectures/[id]">, "par
                 ・ 研修資料 第{lecture.chapter_id}章 p.{lecture.page_start}〜{lecture.page_end}
               </span>
             )}
-          </p>
-          <div className="mt-4">
+          </h2>
+        </header>
+        <div
+          key={lecture.id}
+          role="region"
+          aria-label="講義資料の本文"
+          tabIndex={0}
+          className="px-4 py-6 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-focus sm:px-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:px-10 lg:py-8"
+        >
+          <article className="mx-auto max-w-[680px] break-words">
             {lecture.material_md ? (
-              <Markdown>{lecture.material_md}</Markdown>
+              <LectureMaterial lectureId={lecture.id}>{lecture.material_md}</LectureMaterial>
             ) : (
               <p className="rounded-lg bg-parchment p-6 type-caption text-ink-muted-80">
                 この講義の資料は準備中です。研修資料（紙）の該当ページを参照してください。
               </p>
             )}
-          </div>
-        </article>
+          </article>
+        </div>
       </section>
     </main>
   );

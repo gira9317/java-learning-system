@@ -14,5 +14,6 @@ export type AuthUser = {
 export type AppEnv = {
   Variables: {
     user: AuthUser;
+    questionNo: number;
   };
 };

@@ -1,0 +1,37 @@
+{
+  "11": [
+    {"title":"まずは実行してみよう","prompt":"コードはもう用意してあります。まずは変更せず「実行」を押し、`こんにちは`と表示されることを確かめてください。その後「採点する」も試しましょう。入力は不要です。","starterBody":"        System.out.println(\"こんにちは\");","tests":[{"args":[],"expected":"こんにちは"}]},
+    {"title":"あいさつを変えよう","prompt":"ダブルクォーテーション`\" \"`の中の`こんにちは`だけを、`おはようございます`へ変えて実行してください。かっこやセミコロンはそのままにします。入力は不要です。","starterBody":"        System.out.println(\"こんにちは\");","tests":[{"args":[],"expected":"おはようございます"}]},
+    {"title":"名前を表示しよう","prompt":"`ここを変える`を`太郎`へ書き換え、太郎と1行に表示してください。まずは文字の部分だけを変える練習です。入力は不要です。","starterBody":"        System.out.println(\"ここを変える\");","tests":[{"args":[],"expected":"太郎"}]},
+    {"title":"2行に表示しよう","prompt":"用意された1行目の下へ`System.out.println(\"よろしくお願いします\");`を追加してください。出力は1行目が`こんにちは`、2行目が`よろしくお願いします`です。入力は不要です。","starterBody":"        System.out.println(\"こんにちは\");\n        // この下に表示する文を1行追加します","tests":[{"args":[],"expected":"こんにちは\nよろしくお願いします"}]},
+    {"title":"表示の順番を直そう","prompt":"表示する3行の順番を入れ替えて、`開始`、`練習中`、`終了`の順で1行ずつ出してください。文は上から順に実行されます。入力は不要です。","starterBody":"        System.out.println(\"終了\");\n        System.out.println(\"開始\");\n        System.out.println(\"練習中\");","tests":[{"args":[],"expected":"開始\n練習中\n終了"}]}
+  ],
+  "12": [
+    {"title":"数値を表示しよう","prompt":"用意したコードの数字`0`を`3`へ変え、3と表示してください。数字をそのまま表示するときは、ダブルクォーテーションで囲まなくても書けます。入力は不要です。","starterBody":"        System.out.println(0);","tests":[{"args":[],"expected":"3"}]},
+    {"title":"計算を表示しよう","prompt":"`System.out.println(2 + 3);`という1行へ直してください。計算結果の`5`が表示されます。入力は不要です。","starterBody":"        System.out.println(2);","tests":[{"args":[],"expected":"5"}]},
+    {"title":"式を文字で表示しよう","prompt":"今度は計算せず、文字として`2 + 3`と表示してください。かっこの中を`\"2 + 3\"`にすると、式そのものを表示できます。半角空白も例どおりにします。入力は不要です。","starterBody":"        System.out.println(2 + 3);","tests":[{"args":[],"expected":"2 + 3"}]},
+    {"title":"文字と数字をつなごう","prompt":"`人数: 3`と表示してください。`\"人数: \" + 3`で文字と数値をつなげられます。コロンの後は半角空白1つです。入力は不要です。","starterBody":"        System.out.println(3);","tests":[{"args":[],"expected":"人数: 3"}]},
+    {"title":"先に計算してから表示しよう","prompt":"用意したコードは`合計: 23`となります。`2 + 3`をかっこで囲んで先に計算させ、`合計: 5`と表示してください。入力は不要です。","starterBody":"        System.out.println(\"合計: \" + 2 + 3);","tests":[{"args":[],"expected":"合計: 5"}]}
+  ],
+  "13": [
+    {"title":"変数の中身を変えよう","prompt":"countは、数値を覚えるための名前です。`int count = 1;`の1を3へ変え、表示を3にしてください。表示の行はそのままでかまいません。入力は不要です。","starterBody":"        int count = 1;\n        System.out.println(count);","tests":[{"args":[],"expected":"3"}]},
+    {"title":"名前を変数へ入れよう","prompt":"nameへ入れる文字を`太郎`から`花子`へ変え、花子と表示してください。文字を入れる変数にはStringを使います。入力は不要です。","starterBody":"        String name = \"太郎\";\n        System.out.println(name);","tests":[{"args":[],"expected":"花子"}]},
+    {"title":"値を更新しよう","prompt":"`count = count + 1;`という行を、変数を作る行と表示の行の間へ追加してください。最初の2に1を足して、3と表示します。更新する行ではintを書き直しません。入力は不要です。","starterBody":"        int count = 2;\n        // ここでcountを1増やします\n        System.out.println(count);","tests":[{"args":[],"expected":"3"}]},
+    {"title":"2つの変数を使おう","prompt":"用意されたnameとageを使い、`太郎:20`と1行に表示してください。表示部分を`name + \":\" + age`へ直します。入力は不要です。","starterBody":"        String name = \"太郎\";\n        int age = 20;\n        System.out.println(name);","tests":[{"args":[],"expected":"太郎:20"}]},
+    {"title":"変数どうしで計算しよう","prompt":"priceは120、countは3です。表示のかっこ内を`price * count`へ直し、合計の360と表示してください。*は掛け算です。入力は不要です。","starterBody":"        int price = 120;\n        int count = 3;\n        System.out.println(price);","tests":[{"args":[],"expected":"360"}]}
+  ],
+  "14": [
+    {"title":"足し算","prompt":"a=4とb=2を足し、6と表示してください。表示する0を`a + b`へ変えます。入力は不要です。","starterBody":"        int a = 4;\n        int b = 2;\n        System.out.println(0);","tests":[{"args":[],"expected":"6"}]},
+    {"title":"引き算","prompt":"a=7からb=3を引き、4と表示してください。表示する0を`a - b`へ変えます。入力は不要です。","starterBody":"        int a = 7;\n        int b = 3;\n        System.out.println(0);","tests":[{"args":[],"expected":"4"}]},
+    {"title":"掛け算","prompt":"a=3とb=4を掛け、12と表示してください。表示する0を`a * b`へ変えます。掛け算は×ではなく半角の*です。入力は不要です。","starterBody":"        int a = 3;\n        int b = 4;\n        System.out.println(0);","tests":[{"args":[],"expected":"12"}]},
+    {"title":"割り算","prompt":"整数のa=7をb=2で割り、整数部分の3と表示してください。表示する0を`a / b`へ変えます。int同士では小数部分は残りません。入力は不要です。","starterBody":"        int a = 7;\n        int b = 2;\n        System.out.println(0);","tests":[{"args":[],"expected":"3"}]},
+    {"title":"余りを求めよう","prompt":"7個のお菓子を2人に同じ数ずつ配ると、1個余ります。表示の0を`a % b`へ直し、この余りの1を表示してください。入力は不要です。","starterBody":"        int a = 7;\n        int b = 2;\n        System.out.println(0);","tests":[{"args":[],"expected":"1"}]}
+  ],
+  "15": [
+    {"title":"入力した文字を表示しよう","prompt":"実行欄の引数は、プログラムの外から渡すデータです。用意されたコードを実行し、太郎と表示されることを確認してください。引数を花子へ変えると花子と表示されます。`args[0]`は最初の引数です。","starterBody":"        System.out.println(args[0]);","tests":[{"args":["太郎"],"expected":"太郎"},{"args":["花子"],"expected":"花子"},{"args":["Ken"],"expected":"Ken","hidden":true}]},
+    {"title":"2つの入力を受け取ろう","prompt":"引数を2つ受け取り、1行ずつ表示してください。用意された行の下へ`System.out.println(args[1]);`を追加します。2つ目の引数はargs[1]です。引数は必ず2個あります。","starterBody":"        System.out.println(args[0]);\n        // 2つ目を表示する行を追加します","tests":[{"args":["赤","青"],"expected":"赤\n青"},{"args":["A","B"],"expected":"A\nB"},{"args":["1","2"],"expected":"1\n2","hidden":true}]},
+    {"title":"入力を数値へ変えよう","prompt":"引数の文字を数値へ変換する行を用意しました。表示する0を`number`へ変え、受け取った整数を表示してください。引数は-100〜100の整数1個です。","starterBody":"        int number = Integer.parseInt(args[0]);\n        System.out.println(0);","tests":[{"args":["3"],"expected":"3"},{"args":["10"],"expected":"10"},{"args":["-2"],"expected":"-2","hidden":true}]},
+    {"title":"入力した2つの数を足そう","prompt":"2つの引数を整数にする行を用意しました。表示する0を`a + b`へ直し、合計を表示してください。各引数は-100〜100です。","starterBody":"        int a = Integer.parseInt(args[0]);\n        int b = Integer.parseInt(args[1]);\n        System.out.println(0);","tests":[{"args":["2","3"],"expected":"5"},{"args":["0","4"],"expected":"4"},{"args":["-2","2"],"expected":"0","hidden":true}]},
+    {"title":"入力から合計金額を求めよう","prompt":"第1引数は単価、第2引数は個数です。表示する0を`price * count`へ直し、合計金額だけを表示してください。単価は0〜1000、個数は0〜10で、円などの文字は付けません。","starterBody":"        int price = Integer.parseInt(args[0]);\n        int count = Integer.parseInt(args[1]);\n        System.out.println(0);","tests":[{"args":["120","3"],"expected":"360"},{"args":["50","2"],"expected":"100"},{"args":["100","0"],"expected":"0","hidden":true}]}
+  ]
+}
