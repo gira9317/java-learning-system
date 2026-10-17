@@ -7,6 +7,7 @@ import auth from "./routes/auth.js";
 import admin from "./routes/admin.js";
 import lectures from "./routes/lectures.js";
 import lessons from "./routes/lessons.js";
+import notifications from "./routes/notifications.js";
 
 const app = new Hono();
 
@@ -17,6 +18,7 @@ app.get("/health", (c) => c.json({ ok: true }));
 app.route("/auth", auth);
 app.route("/lectures", lectures);
 app.route("/lessons", lessons);
+app.route("/notifications", notifications);
 app.route("/admin", admin);
 
 app.notFound((c) => c.json({ message: "Not Found" }, 404));

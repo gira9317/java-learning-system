@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ApiError } from "@/api/client";
 import {
   gradeCode,
@@ -32,7 +32,7 @@ export const starterCode = `public class Main {
 export type TestResult = GradeCaseResult;
 
 type RunOutput = { args: string[]; compile: CompileResult; result: RunCaseResult | null };
-type GradeOutput = { compile: CompileResult; results: GradeCaseResult[] };
+type GradeOutput = { code: string; compile: CompileResult; results: GradeCaseResult[] };
 
 /** 引数の入力欄（スペース区切り）を配列にする */
 function parseArgs(text: string) {
@@ -71,6 +71,7 @@ export function CodePane({
   saveDraft: (content: CodeContent, options: { keepalive: boolean }) => Promise<unknown>;
 }) {
   const [code, setCode] = useState(initial?.code ?? starter);
+  const currentCode = useRef(code);
   const draftStatus = useAutosave<CodeContent>({ code }, saveDraft);
   const [argsText, setArgsText] = useState(initialArgs.join(" "));
   const [stdin, setStdin] = useState("");
@@ -83,9 +84,11 @@ export function CodePane({
   const [grade, setGrade] = useState<GradeOutput | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const results = grade?.compile.ok ? grade.results : null;
+  const currentGrade = grade?.code === code ? grade : null;
+  const results = currentGrade?.compile.ok ? currentGrade.results : null;
 
   function update(next: string) {
+    currentCode.current = next;
     setCode(next);
     if (grade) {
       setGrade(null);
@@ -112,34 +115,43 @@ export function CodePane({
 
   /** 採点して結果を表示する。失敗したら null */
   async function runGrade() {
+    const gradedCode = code;
     setTab("tests");
     setConsoleOpen(true);
     setRunning("grade");
     setError(null);
     try {
-      const g = await gradeCode(lessonId, code, questionNo);
-      setGrade(g);
+      const g = await gradeCode(lessonId, gradedCode, questionNo);
+      if (currentCode.current !== gradedCode) return null;
+      setGrade({ ...g, code: gradedCode });
       onGraded(g.compile.ok ? g.results : []);
       return g;
     } catch (e) {
-      setGrade(null);
-      onGraded(null);
-      setError(errorMessage(e));
+      if (currentCode.current === gradedCode) {
+        setGrade(null);
+        onGraded(null);
+        setError(errorMessage(e));
+      }
       return null;
     } finally {
       setRunning(null);
     }
   }
 
-  // 提出の前に採点して結果を見せる（保存される採点結果は、サーバーが提出時に採点し直したもの）
-  async function handleSubmit() {
-    const g = await runGrade();
-    if (!g) return;
-    onSubmit({ code }, g.compile.ok ? g.results : []);
+  // 合格したコードだけを送る。API側でも同じコードを必ず採点し直す。
+  function handleSubmit() {
+    if (!allPassed || busy || !submit.stage.canSubmit || !results) return;
+    onSubmit({ code }, results);
   }
 
   const passed = results?.filter((r) => r.ok).length ?? 0;
   const busy = running !== null || submit.submitting;
+  const allPassed = Boolean(results?.length && results.every((result) => result.ok));
+  const validationReason = !currentGrade
+    ? "先に「採点する」で全テストに合格してください。コードを変更した場合は再採点が必要です。"
+    : !currentGrade.compile.ok
+      ? "コンパイルエラーを修正して、再採点してください。"
+      : !allPassed ? "失敗したテストを修正し、全テストに合格してから提出してください。" : undefined;
 
   return (
     <>
@@ -167,9 +179,10 @@ export function CodePane({
             採点する
           </button>
         </span>
-        <SubmitButton control={{ ...submit, submitting: submit.submitting || running === "grade" }} onClick={handleSubmit} />
+        <SubmitButton control={{ ...submit, validationReason: busy ? "実行・採点・提出が終わるまでお待ちください。" : validationReason }} onClick={handleSubmit} />
       </PaneHeader>
       <StageBanner control={submit} dark />
+      {submit.stage.canSubmit && validationReason && <p role="status" className="shrink-0 bg-tile-1 px-4 py-2 type-caption text-white/70">{validationReason}</p>}
 
       <div className="flex h-9 shrink-0 items-end gap-px bg-tile-1 px-2">
         <span className="rounded-t-sm bg-tile-3 px-4 py-2 font-mono text-[12px] text-white/85">Main.java</span>
@@ -269,11 +282,11 @@ export function CodePane({
             ) : (
               <p className="font-sans type-caption text-white/45">「実行」を押すと、コンパイルして実行し、ここに出力を表示します。</p>
             )
-          ) : grade ? (
-            grade.compile.ok ? (
-              <GradeView results={grade.results} />
+          ) : currentGrade ? (
+            currentGrade.compile.ok ? (
+              <GradeView results={currentGrade.results} />
             ) : (
-              <CompileError output={grade.compile.output} />
+              <CompileError output={currentGrade.compile.output} />
             )
           ) : (
             <p className="font-sans type-caption text-white/45">「採点する」を押すと、テストケースで実行して自動採点します。</p>

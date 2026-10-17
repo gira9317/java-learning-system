@@ -182,11 +182,15 @@ lessons.post("/:id/submissions", bodyLimit({ maxSize: 100 * 1024 }), async (c) =
   if (body.data.kind === "code") {
     try {
       const grade = await gradeCode(id.data, body.data.content.code, c.get("questionNo"));
-      autoResults = !grade
-        ? null
-        : grade.compile.ok
-          ? grade.results
-          : [{ input: "コンパイル", expected: "成功", actual: grade.compile.output, ok: false, label: null, hidden: false, error: null }];
+      if (!grade) return c.json({ message: "この問題の採点設定がないため、提出できません" }, 503);
+      if (!grade.compile.ok || grade.results.length === 0 || !grade.results.every((result) => result.ok)) {
+        return c.json({
+          message: "全テストに合格してからレビューを依頼してください。提出は保存されていません。",
+          code: "TESTS_FAILED",
+          grade: maskHidden(grade),
+        }, 422);
+      }
+      autoResults = grade.results;
     } catch (error) {
       if (error instanceof RunnerUnavailableError) {
         console.error(error);

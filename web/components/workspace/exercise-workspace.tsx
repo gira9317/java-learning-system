@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiError } from "@/api/client";
 import type { ExerciseQuestion } from "@/api/lessons-api";
@@ -22,6 +21,7 @@ import { LessonHeader } from "./lesson-header";
 import { ProblemStatement } from "./problem-statement";
 import { ResizablePanes } from "./resizable-panes";
 import type { SubmitControl } from "./submission-status";
+import { useLiveLesson } from "./use-live-lesson";
 
 const FLOW = 0;
 const CODE = 1;
@@ -32,9 +32,9 @@ const CODE = 1;
  * 問題文は右から開くパネル。フロー図 → コードの順に提出し、両方が承認されるとレッスンが完了する。
  */
 export function ExerciseWorkspace({
-  lesson,
-  lessons,
-  submissions,
+  lesson: initialLesson,
+  lessons: initialLessons,
+  submissions: initialSubmissions,
   question,
   questions,
 }: {
@@ -44,7 +44,7 @@ export function ExerciseWorkspace({
   question: ExerciseQuestion;
   questions: ExerciseQuestion[];
 }) {
-  const router = useRouter();
+  const {lesson,lessons,submissions,refresh} = useLiveLesson(initialLesson,initialLessons,initialSubmissions,question.number);
   const codeOnly = lesson.level !== "core";
   const [codeResults, setCodeResults] = useState<TestResult[] | null>(null);
   const [flowChecks, setFlowChecks] = useState<FlowCheck[] | null>(null);
@@ -82,8 +82,7 @@ export function ExerciseWorkspace({
     setSubmitError(null);
     try {
       await submit(lesson.id, body, question.number);
-      // 提出の状態（レビュー待ち）をサーバーから読み直す。同じページなので refresh でよい
-      router.refresh();
+      await refresh();
     } catch (e) {
       setSubmitError(e instanceof ApiError ? e.message : "提出に失敗しました。");
     } finally {

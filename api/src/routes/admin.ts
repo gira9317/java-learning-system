@@ -242,7 +242,7 @@ async function review(reviewerId: string, submissionId: string, status: "approve
     const result = await client.query(
       `
       UPDATE submissions
-      SET status = $1, review_comment = $2, reviewed_by = $3, reviewed_at = now()
+      SET status = $1, review_comment = $2, reviewed_by = $3, reviewed_at = now(), review_read_at = NULL
       WHERE id = $4 AND status = 'pending'
       RETURNING user_id, lesson_id, kind
       `,

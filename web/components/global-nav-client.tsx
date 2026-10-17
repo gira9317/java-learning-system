@@ -6,6 +6,7 @@ import { getAdminSummary } from "@/api/admin-api";
 import { logout, type User } from "@/api/auth-api";
 import { accountDestination } from "@/lib/account-navigation";
 import { CupIcon } from "./icons";
+import { ReviewNotifications } from "./review-notifications";
 
 export type Variant = "marketing" | "app" | "admin" | "minimal";
 
@@ -81,6 +82,7 @@ export function GlobalNavClient({ variant = "app", user = null, pending = false 
         </ul>
 
         <div className="flex items-center gap-1 text-[12px] text-white/80">
+          {user?.role === "user" && !user.mustChangePassword && <ReviewNotifications key={user.id} />}
           {variant === "marketing" && !pending && (
             <Link href={destination.href} className="btn rounded-full px-3 py-1.5 text-white">
               {destination.label}

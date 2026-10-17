@@ -1,8 +1,8 @@
 "use client";
 
-import Editor, { loader, type BeforeMount, type OnMount } from "@monaco-editor/react";
+import { loader, type BeforeMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { registerJavaCompletions } from "./java-completions";
 
 // Monaco は CDN ではなく自分のサーバーから読み込む（scripts/copy-monaco.mjs が public/monaco/vs にコピーする）
@@ -82,30 +82,7 @@ function rainbowDecorations(model: Monaco.editor.ITextModel, monaco: typeof Mona
   return decorations;
 }
 
-/** コード演習の Java エディタ（Monaco Editor） */
-export function MonacoJavaEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const rainbow = useRef<Monaco.editor.IEditorDecorationsCollection | null>(null);
-
-  const onMount: OnMount = (editor, monaco) => {
-    const model = editor.getModel();
-    if (!model) return;
-    rainbow.current = editor.createDecorationsCollection(rainbowDecorations(model, monaco));
-    editor.onDidChangeModelContent(() => {
-      rainbow.current?.set(rainbowDecorations(model, monaco));
-    });
-  };
-
-  return (
-    <div className="min-h-0 flex-1 bg-tile-3">
-      <Editor
-        language="java"
-        theme={THEME}
-        value={value}
-        onChange={(v) => onChange(v ?? "")}
-        beforeMount={defineTheme}
-        onMount={onMount}
-        loading={<p className="p-4 type-caption text-white/45">エディタを読み込んでいます…</p>}
-        options={{
+const EDITOR_OPTIONS: Monaco.editor.IStandaloneEditorConstructionOptions = {
           // 入力には textarea を使う（新しい EditContext だと、React Flow などページ全体でキーを受け取る部品が
           // 「入力中」と判定できず、Space や Backspace を横取りしてしまうため）
           editContext: false,
@@ -117,7 +94,7 @@ export function MonacoJavaEditor({ value, onChange }: { value: string; onChange:
           detectIndentation: false,
           minimap: { enabled: false },
           scrollBeyondLastLine: false,
-          automaticLayout: true,
+          automaticLayout: false,
           padding: { top: 12, bottom: 12 },
           // 括弧の色分けとガイド線（レインボー）
           bracketPairColorization: { enabled: true },
@@ -133,8 +110,105 @@ export function MonacoJavaEditor({ value, onChange }: { value: string; onChange:
           renderLineHighlight: "line",
           smoothScrolling: true,
           contextmenu: true,
-        }}
-      />
+};
+
+/** Monacoを明示的に所有し、Fast Refresh/Strict Mode後に破棄済みインスタンスを再利用しない。 */
+export function MonacoJavaEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const host = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const valueRef = useRef(value);
+  const changeRef = useRef(onChange);
+  const applyingValue = useRef(false);
+  const [error,setError] = useState(false);
+  const [ready,setReady] = useState(false);
+  const [attempt,setAttempt] = useState(0);
+
+  useEffect(() => {
+    valueRef.current = value;
+    changeRef.current = onChange;
+    const editor = editorRef.current;
+    const model = editor?.getModel();
+    if (!editor || !model || model.isDisposed() || model.getValue() === value) return;
+    applyingValue.current = true;
+    try {
+      editor.executeEdits("external-value",[{range:model.getFullModelRange(),text:value,forceMoveMarkers:true}]);
+      editor.pushUndoStop();
+    } finally { applyingValue.current = false; }
+  },[value,onChange]);
+
+  useEffect(() => {
+    const element = host.current;
+    if (!element) return;
+    const container: HTMLDivElement = element;
+    let active = true;
+    let editor: Monaco.editor.IStandaloneCodeEditor | null = null;
+    let model: Monaco.editor.ITextModel | null = null;
+    let observer: ResizeObserver | null = null;
+    let listener: Monaco.IDisposable | null = null;
+    let decorations: Monaco.editor.IEditorDecorationsCollection | null = null;
+    let frame: number | null = null;
+
+    function dispose() {
+      observer?.disconnect();
+      if (frame !== null) { cancelAnimationFrame(frame); frame = null; }
+      listener?.dispose();
+      if (editorRef.current === editor) editorRef.current = null;
+      // モデルは別途作成しているため、描画側を破棄してからモデルを破棄する。
+      decorations?.clear();
+      decorations = null;
+      editor?.dispose();
+      editor = null;
+      if (model && !model.isDisposed()) model.dispose();
+      model = null;
+      container.replaceChildren();
+    }
+
+    void loader.init().then((monaco) => {
+      if (!active || !container.isConnected) return;
+      defineTheme(monaco);
+      const createdModel = monaco.editor.createModel(valueRef.current,"java");
+      model = createdModel;
+      const createdEditor = monaco.editor.create(container,{...EDITOR_OPTIONS,model:createdModel,theme:THEME});
+      editor = createdEditor;
+      editorRef.current = createdEditor;
+      decorations = createdEditor.createDecorationsCollection(rainbowDecorations(createdModel,monaco));
+      listener = createdEditor.onDidChangeModelContent(() => {
+        if (!active || !editor || !model || model.isDisposed()) return;
+        decorations?.set(rainbowDecorations(model,monaco));
+        if (!applyingValue.current) changeRef.current(editor.getValue());
+      });
+      function layout() {
+        if (!active || frame !== null) return;
+        frame = requestAnimationFrame(() => {
+          frame = null;
+          if (!active || !editor || !container.isConnected) return;
+          const {width,height} = container.getBoundingClientRect();
+          if (width > 0 && height > 0) editor.layout({width,height});
+        });
+      }
+      observer = new ResizeObserver(layout);
+      observer.observe(container);
+      layout();
+      setReady(true);
+    }).catch((cause: unknown) => {
+      if (!active) return;
+      dispose();
+      console.error("Java editor initialization failed",cause);
+      setError(true);
+    });
+
+    return () => { active = false; dispose(); };
+  },[attempt]);
+
+  return (
+    <div className="relative min-h-0 flex-1 bg-tile-3">
+      <div ref={host} className="absolute inset-0" />
+      {!ready && !error && <p className="absolute top-4 left-4 type-caption text-white/45">エディタを読み込んでいます…</p>}
+      {error && <div className="absolute inset-0 flex flex-col bg-tile-3 p-4">
+        <p role="alert" className="type-caption text-white/80">エディタを初期化できませんでした。コードは下の入力欄で引き続き編集・保存できます。</p>
+        <button type="button" className="btn btn-secondary mt-2 self-start" onClick={() => { setReady(false); setError(false); setAttempt((current)=>current+1); }}>エディタを再試行</button>
+        <textarea aria-label="Javaコード（簡易入力）" className="mt-3 min-h-0 flex-1 resize-none bg-tile-3 p-3 font-mono text-[13px] text-white outline-none" value={value} onChange={(event)=>onChange(event.target.value)} spellCheck={false} />
+      </div>}
     </div>
   );
 }

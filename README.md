@@ -29,7 +29,11 @@
 5. レビューで差し戻された場合は、コメントを見て修正・再提出します。
 6. レッスンの全5問のコードが承認されると、次のレッスンが解放されます。
 
+承認・差し戻しの結果はヘッダーのベルから確認できます。未読件数、レッスン・問題番号、フロー図／コードの区別、レビューコメントを表示し、通知を選ぶと該当する演習問題へ移動します。「既読にする」だけの操作もできます。通知は30秒ごと、画面に戻ったとき、ベルを開いたときに更新し、既読状態はDBに保存します。未読を優先して最大30件を表示します。機能導入前のレビュー結果は既読の履歴として扱います。
+新しいレビュー結果を取得すると、通知をクリックしなくても演習画面のステータス・コメント・提出可否を自動更新します。編集中のコード・フロー図は保持し、既読操作だけでは画面の再取得を行いません。
+
 通常の演習は「フロー図の提出・承認 → コードの提出・承認」の順です。**入門編とリファクタリング演習はコードのみ**で取り組めます。自動採点は動作を確認し、命名・指定構文・責務分割などは担当者がレビューします。
+コードのレビュー依頼は、現在のコードが全テストに合格した場合のみ送れます。未採点・コンパイルエラー・テスト失敗時は提出できず、コード変更後は再採点が必要です。APIも提出されたコードを採点し直し、不合格ならレビュー待ちを作らず、下書きを保持します。
 
 講義の「視聴・読了済み」は受講者が付けるチェックです。4択小テストの解答は画面内の自己確認用で、サーバーへの成績保存やレッスンの解放条件には使いません。
 
@@ -245,6 +249,8 @@ docker compose up --build
 
 表示番号は学習順です。内部IDはURL・教材ファイル・提出記録に使い、並び順を変えても振り直しません。例えば、画面のLesson 15は`/lessons/16`です。
 
+フロー図では、Altを押したままノードをドラッグすると複製できます。複数選択した場合はノード同士の矢印も一緒に複製し、元の図と外側への接続は保持します。通常のドラッグは移動です。
+
 ## 教材を編集・追加する
 
 ### 講義の本文・動画
@@ -390,6 +396,12 @@ node --env-file-if-exists=.env --import tsx scripts/check-exercises.ts
 # クラス → リファクタリング → 例外処理の解放順と教材・演習画面
 node --env-file-if-exists=.env --import tsx scripts/check-readability.ts
 
+# レビュー通知・既読・受講者間の分離・ヘッダー表示
+node --env-file-if-exists=.env --import tsx scripts/check-notifications.ts
+
+# 不合格コードの提出拒否・下書き保持・合格時のレビュー依頼
+node --env-file-if-exists=.env --import tsx scripts/check-submission-gate.ts
+
 # 講義MDとDB、導入・4択小テスト・Option、講義ページの表示
 npm run content:check
 
@@ -435,6 +447,7 @@ webはDBへ直接接続しません。APIの入口は`api/src/index.ts`、画面
 | `PUT /lessons/:id/drafts/:kind` | `flow`・`code`の下書き保存 | 同上 |
 | `POST /lessons/:id/run` / `POST /lessons/:id/grade` | Java実行・採点 | 同上 |
 | `GET /lectures` / `GET /lectures/:id` | サインイン・パスワード変更済み | `routes/lectures.ts` |
+| `GET /notifications` / `POST /notifications/:id/read` | 受講者本人のレビュー通知一覧・既読保存 | `routes/notifications.ts` |
 | `PUT /lectures/:id/progress` | 視聴・読了状態の保存 | 同上 |
 | `GET /admin/summary` | 研修担当者・レビュー待ち件数 | `routes/admin.ts` |
 | `GET /admin/users` / `POST /admin/users` / `GET /admin/users/:id` / `POST /admin/users/:id/reset-password` | 研修担当者・アカウント管理 | 同上 |

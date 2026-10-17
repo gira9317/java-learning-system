@@ -16,6 +16,7 @@ import {
   type EdgeChange,
   type IsValidConnection,
   type NodeChange,
+  type OnNodeDrag,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useRef, useState } from "react";
@@ -37,6 +38,7 @@ import { PaletteGlyph } from "./flow-shapes";
 import { PaneHeader } from "./resizable-panes";
 import { StageBanner, SubmitButton, type SubmitControl } from "./submission-status";
 import { autosaveLabel, useAutosave } from "./use-autosave";
+import { startFlowDuplication, finishFlowDuplication } from "@/lib/flow-duplication";
 
 /* ---------- 保存する形（中心座標の FlowNode / FlowEdge）と React Flow の形の変換 ---------- */
 
@@ -76,6 +78,7 @@ const DEFAULT_LABEL: Record<FlowNodeType, string> = { start: "開始", end: "終
  * - 何もないところをドラッグ（左ボタン・ホイールの押し込み・タッチ）: 表示位置を移動
  * - ホイール: 拡大・縮小
  * - Backspace / Delete: 選んだノード・矢印を削除
+ * - Alt + ノードをドラッグ: 元を残して複製。複数選択時は内部の矢印も複製
  * - 複数選択は慣れた人向け: Shift + ドラッグで範囲選択、Shift / Ctrl + クリックで追加
  * - ノードの縁の丸（ハンドル）から別のノードへドラッグ: 矢印でつなぐ。条件分岐は左が True、右が False
  * ルールベース採点も備える。
@@ -103,9 +106,36 @@ function FlowEditor({ onGraded, initial, submit, onSubmit, saveDraft, requireSco
   const [nodes, setNodes, onNodesChangeBase] = useNodesState<ShapeNode>((initial?.nodes ?? initialNodes).map(toShapeNode));
   const [edges, setEdges, onEdgesChangeBase] = useEdgesState<BranchEdge>((initial?.edges ?? initialEdges).map(toBranchEdge));
   const [checks, setChecks] = useState<FlowCheck[] | null>(null);
-  const { screenToFlowPosition, deleteElements } = useReactFlow<ShapeNode, BranchEdge>();
+  const { screenToFlowPosition, deleteElements, getNodes, getEdges } = useReactFlow<ShapeNode, BranchEdge>();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const counter = useRef(100);
+  const duplication = useRef<Map<string, string> | null>(null);
+
+  function nextId(prefix: "n" | "e") {
+    const used = new Set([...getNodes(), ...getEdges()].map((item) => item.id));
+    let id: string;
+    do { id = `${prefix}${counter.current++}`; } while (used.has(id));
+    return id;
+  }
+
+  const onNodeDragStart: OnNodeDrag<ShapeNode> = (event, _node, dragged) => {
+    if (!event.altKey || duplication.current) return;
+    const plan = startFlowDuplication(getNodes(), getEdges(), dragged.map((node) => node.id), nextId);
+    if (!plan) return;
+    duplication.current = plan.swapIds;
+    setNodes(plan.nodes);
+    setEdges(plan.edges);
+    invalidate();
+  };
+
+  function onNodeDragStop() {
+    const swapIds = duplication.current;
+    if (!swapIds) return;
+    duplication.current = null;
+    // React Flowが最後の座標を反映した後のstateを使う。
+    setNodes((current) => finishFlowDuplication(current, [], swapIds).nodes);
+    setEdges((current) => finishFlowDuplication([], current, swapIds).edges);
+  }
 
   const selectedNodes = nodes.filter((n) => n.selected);
   const selectedEdges = edges.filter((e) => e.selected);
@@ -139,7 +169,8 @@ function FlowEditor({ onGraded, initial, submit, onSubmit, saveDraft, requireSco
 
   function onConnect(c: Connection) {
     const branch = c.sourceHandle === "true" || c.sourceHandle === "false" ? c.sourceHandle : undefined;
-    setEdges((es) => [...es, toBranchEdge({ id: `e${counter.current++}`, from: c.source, to: c.target, branch })]);
+    const id = nextId("e");
+    setEdges((es) => [...es, toBranchEdge({ id, from: c.source, to: c.target, branch })]);
     invalidate();
   }
 
@@ -150,7 +181,7 @@ function FlowEditor({ onGraded, initial, submit, onSubmit, saveDraft, requireSco
       ? screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
       : { x: 220, y: 300 };
     const offset = (counter.current % 5) * 14;
-    const id = `n${counter.current++}`;
+    const id = nextId("n");
     const node = toShapeNode({
       id,
       type,
@@ -216,6 +247,8 @@ function FlowEditor({ onGraded, initial, submit, onSubmit, saveDraft, requireSco
           edges={edges}
           nodeTypes={nodeTypes}
           onNodesChange={onNodesChange}
+          onNodeDragStart={onNodeDragStart}
+          onNodeDragStop={onNodeDragStop}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           isValidConnection={isValidConnection}
@@ -260,6 +293,8 @@ function FlowEditor({ onGraded, initial, submit, onSubmit, saveDraft, requireSco
                 ホイールで拡大・縮小
                 <br />
                 Backspace で削除
+                <br />
+                Alt＋ドラッグで複製
               </p>
             </div>
           </Panel>

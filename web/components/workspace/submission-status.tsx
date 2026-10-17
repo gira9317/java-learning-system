@@ -7,15 +7,17 @@ export type SubmitControl = {
   comment: string | null;
   /** 提出できない理由。押せないボタンにマウスを乗せたときに出す（帯には出さない） */
   blockedReason?: string;
+  /** 現在のコードの採点結果など、提出前に満たす必要のある条件。 */
+  validationReason?: string;
   submitting: boolean;
 };
 
 export function SubmitButton({ control, onClick }: { control: SubmitControl; onClick: () => void }) {
-  const { stage, submitting, blockedReason } = control;
+  const { stage, submitting, blockedReason, validationReason } = control;
   // 無効なボタンにはマウスの出入りが届かないブラウザがあるので、説明は外側の span に付ける
   return (
-    <span title={!stage.canSubmit && stage.status === "none" ? blockedReason : undefined}>
-      <button type="button" className="btn btn-primary" onClick={onClick} disabled={!stage.canSubmit || submitting}>
+    <span title={!stage.canSubmit ? stage.status === "none" ? blockedReason : undefined : validationReason}>
+      <button type="button" className="btn btn-primary" onClick={onClick} disabled={!stage.canSubmit || submitting || Boolean(validationReason)}>
         {submitting ? "提出しています…" : stage.status === "rejected" ? "再提出する" : "提出する"}
       </button>
     </span>
@@ -28,10 +30,11 @@ export function StageBanner({ control, dark = false }: { control: SubmitControl;
   if (stage.status === "none" && !stage.canSubmit) return null;
 
   const tone = {
-    info: dark ? "bg-white/[0.06] text-white/70" : "bg-parchment text-ink-muted-80",
-    wait: dark ? "bg-primary/25 text-white" : "bg-primary/10 text-ink",
-    ok: dark ? "bg-success/25 text-white" : "bg-success/10 text-ink",
-    ng: dark ? "bg-danger/25 text-white" : "bg-danger/10 text-ink",
+    // コードペインは下地が白でも黒でも同じ色になるよう、不透明な背景を使う。
+    info: dark ? "bg-tile-1 text-body-muted" : "bg-parchment text-ink-muted-80",
+    wait: dark ? "bg-[#15334f] text-[#d7ebff]" : "bg-primary/10 text-ink",
+    ok: dark ? "bg-[#143d25] text-[#d8f5df]" : "bg-success/10 text-ink",
+    ng: dark ? "bg-[#4b2020] text-[#ffe0dc]" : "bg-danger/10 text-ink",
   };
 
   let className = tone.info;
