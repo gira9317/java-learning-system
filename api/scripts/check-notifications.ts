@@ -85,6 +85,27 @@ try {
   assert.ok(feed.notifications.every((item: {review_read_at:string|null}) => item.review_read_at === null));
   console.log("PASS: maximum 30 results with unread priority; unread count includes older results");
 
+  await request("/notifications/read-all","","POST",{},401);
+  await request("/notifications/read-all",initial.token,"POST",{},403);
+  await request("/notifications/read-all",admin.token,"POST",{},403);
+  const otherReview = await pending(other.id,1,"code");
+  await request(`/admin/submissions/${otherReview}/approve`,admin.token,"POST",{});
+  const stillPending = await pending(user.id,3,"code");
+  const versionBeforeReadAll = feed.review_version;
+  const allRead = await request("/notifications/read-all",user.token,"POST",{});
+  assert.equal(allRead.notifications.length,37);
+  feed = await request("/notifications",user.token);
+  assert.equal(feed.unread_count,0);
+  assert.equal(feed.review_version,versionBeforeReadAll);
+  assert.ok(feed.notifications.every((item: {review_read_at:string|null}) => item.review_read_at !== null));
+  assert.equal((await request(`/notifications/${approvedId}/read`,user.token,"POST",{})).notification.review_read_at,read.notification.review_read_at);
+  assert.equal((await request("/notifications",other.token)).unread_count,1);
+  assert.equal((await pool.query("SELECT review_read_at FROM submissions WHERE id=$1",[stillPending])).rows[0].review_read_at,null);
+  assert.deepEqual(await request("/notifications/read-all",user.token,"POST",{}),{notifications:[]});
+  await request(`/admin/submissions/${stillPending}/approve`,admin.token,"POST",{});
+  assert.equal((await request("/notifications",user.token)).unread_count,1);
+  console.log("PASS: read all includes older results, preserves existing read times, isolates users/pending reviews, and leaves later reviews unread");
+
   await pool.query(`INSERT INTO lesson_progress(user_id,lesson_id,status) VALUES($1,11,'in-progress')`,[user.id]);
   const response = await fetch("http://localhost:3000/home",{headers:{cookie:`session=${user.token}`},signal:AbortSignal.timeout(45000)});
   const html = await response.text();

@@ -29,6 +29,16 @@ notifications.get("/", async (c) => {
   return c.json(result.rows[0]);
 });
 
+notifications.post("/read-all", async (c) => {
+  const result = await pool.query(`
+    UPDATE submissions SET review_read_at=now()
+    WHERE user_id=$1 AND status IN ('approved','rejected')
+      AND reviewed_at IS NOT NULL AND review_read_at IS NULL
+    RETURNING id,review_read_at
+  `, [c.get("user").id]);
+  return c.json({ notifications: result.rows });
+});
+
 notifications.post("/:id/read", async (c) => {
   const id = z.uuid().safeParse(c.req.param("id"));
   if (!id.success) return c.json({ message: "通知IDが正しくありません" }, 400);

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
-import { getNotifications, readNotification, type NotificationFeed } from "@/api/notifications-api";
+import { getNotifications, readNotification, readAllNotifications, type NotificationFeed } from "@/api/notifications-api";
 import { pad } from "@/lib/lessons";
 import { REVIEW_UPDATED_EVENT } from "@/lib/review-events";
 import { usePathname } from "next/navigation";
@@ -20,12 +20,14 @@ export function ReviewNotifications() {
   const [reading, setReading] = useState<string | null>(null);
   const details = useRef<HTMLDetailsElement>(null);
   const sequence = useRef(0);
+  const mutating = useRef(false);
   const reviewVersion = useRef<string | null>(null);
   const headingId = useId();
 
   useEffect(() => {
     let active = true;
     async function load() {
+      if (mutating.current) return;
       const version = ++sequence.current;
       try {
         const next = await getNotifications();
@@ -69,6 +71,8 @@ export function ReviewNotifications() {
   }, [router,pathname]);
 
   async function markRead(id: string) {
+    if (mutating.current) return;
+    mutating.current = true;
     ++sequence.current; // 既読前に開始した取得結果で、未読表示へ戻さない。
     setReading(id);
     try {
@@ -85,7 +89,26 @@ export function ReviewNotifications() {
       });
       setError(null);
     } catch { setError("既読にできませんでした。もう一度お試しください。"); }
-    finally { setReading(null); }
+    finally { mutating.current = false; setReading(null); }
+  }
+
+  async function markAllRead() {
+    if (mutating.current) return;
+    mutating.current = true;
+    ++sequence.current;
+    setReading("all");
+    try {
+      const result = await readAllNotifications();
+      const readAt = new Map(result.notifications.map((item) => [item.id, item.review_read_at]));
+      setFeed((current) => current && ({
+        ...current,
+        unread_count: Math.max(0, current.unread_count - readAt.size),
+        notifications: current.notifications.map((item) => readAt.has(item.id)
+          ? { ...item, review_read_at: readAt.get(item.id)! } : item),
+      }));
+      setError(null);
+    } catch { setError("すべて既読にできませんでした。もう一度お試しください。"); }
+    finally { mutating.current = false; setReading(null); }
   }
 
   const count = feed?.unread_count ?? 0;
@@ -103,6 +126,7 @@ export function ReviewNotifications() {
       <section aria-labelledby={headingId} className="fixed top-12 right-4 z-50 w-[calc(100vw-2rem)] max-w-96 overflow-hidden rounded-lg border border-hairline bg-canvas text-ink shadow-lg md:absolute md:top-11 md:right-0 md:w-96">
         <header className="border-b border-hairline px-4 py-3">
           <h2 id={headingId} className="type-body-strong">レビュー結果 <span className="type-caption text-ink-muted-48">未読 {count}件</span></h2>
+          <button type="button" className="mt-2 cursor-pointer type-fine text-link underline underline-offset-4 disabled:cursor-default disabled:opacity-50" disabled={count === 0 || reading !== null} onClick={() => void markAllRead()}>{reading === "all" ? "既読にしています…" : "すべて既読にする"}</button>
           <p className="type-fine mt-1 text-ink-muted-48">未読を優先して最大30件表示します。</p>
         </header>
         {error && <p role="alert" className="px-4 py-3 type-caption text-danger">{error}</p>}

@@ -21,3 +21,7 @@ export function getNotifications() {
 export function readNotification(id: string) {
   return request<{ notification: { id: string; review_read_at: string } }>(`/notifications/${id}/read`, { method: "POST", body: {}, keepalive: true });
 }
+
+export function readAllNotifications() {
+  return request<{ notifications: { id: string; review_read_at: string }[] }>("/notifications/read-all", { method: "POST", body: {} });
+}
