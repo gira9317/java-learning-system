@@ -2,7 +2,10 @@
  * 開発用の初期データ。何度実行してもよい（作成済みのユーザーや進捗はそのまま残す）。
  * Docker で起動したときは、起動のたびに実行される。
  *   npm run db:seed
+ * 最後に db/seed.sql（講義の解説動画 URL など、SQL で書いた初期データ）も流す。
  */
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { pool } from "../src/db.js";
 import { createAccount } from "../src/lib/accounts.js";
 
@@ -55,5 +58,10 @@ for (const account of accounts) {
   await createAccount({ ...account, password: INITIAL_PASSWORD });
   console.log(`ユーザー: ${account.employeeNo}（${account.role}）を作成 — 初期パスワード ${INITIAL_PASSWORD}`);
 }
+
+// api/ で実行する（npm run db:seed でも、Docker の起動時でも）
+const seedSql = await readFile(join(process.cwd(), "db", "seed.sql"), "utf8");
+const videos = await pool.query(seedSql);
+console.log(`講義の動画: ${videos.rowCount ?? 0} 件を登録（登録済みの講義はそのまま）`);
 
 await pool.end();
