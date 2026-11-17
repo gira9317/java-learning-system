@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { logger } from "hono/logger";
+import { secureHeaders } from "hono/secure-headers";
 import { port } from "./config/config.js";
 import { originCheckMiddleware } from "./middleware/originCheckMiddleware.js";
 import auth from "./routes/auth.js";
@@ -12,6 +13,7 @@ import notifications from "./routes/notifications.js";
 const app = new Hono();
 
 app.use(logger());
+app.use(secureHeaders());
 app.use(originCheckMiddleware);
 
 app.get("/health", (c) => c.json({ ok: true }));

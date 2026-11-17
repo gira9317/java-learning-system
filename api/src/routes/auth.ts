@@ -1,8 +1,8 @@
 import argon2 from "argon2";
 import { Hono } from "hono";
-import { getConnInfo } from "@hono/node-server/conninfo";
 import { z } from "zod";
 import { pool } from "../db.js";
+import { getClientIp } from "../lib/client-ip.js";
 import { createSession, destroySession } from "../lib/session.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
 import { rateLimit } from "../middleware/rateLimitMiddleware.js";
@@ -26,7 +26,7 @@ auth.post("/login", async (c) => {
   }
   const { employeeNo, password, rememberMe } = parsed.data;
 
-  const ip = getConnInfo(c).remote.address ?? "unknown";
+  const ip = getClientIp(c);
   const employeeAllowed = rateLimit(`login:employee:${employeeNo}`, EMPLOYEE_COUNT, WINDOW_SECONDS);
   const ipAllowed = rateLimit(`login:ip:${ip}`, IP_COUNT, WINDOW_SECONDS);
   if (!employeeAllowed || !ipAllowed) {

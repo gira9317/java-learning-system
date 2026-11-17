@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { GlobalNav } from "@/components/global-nav";
 import { CupIcon } from "@/components/icons";
+import { accountDestination } from "@/lib/account-navigation";
+import { getCurrentUser } from "@/lib/session";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
@@ -11,6 +15,10 @@ export const metadata: Metadata = {
 export default function LoginPage() {
   return (
     <>
+      {/* サインイン済みなら、フォームを出さずに役割に合ったページへ移す */}
+      <Suspense fallback={null}>
+        <RedirectIfSignedIn />
+      </Suspense>
       <GlobalNav variant="minimal" />
       <main className="flex flex-1 flex-col bg-canvas px-4 pt-12 pb-16 sm:justify-center sm:bg-parchment sm:px-6 sm:py-20">
         <div className="mx-auto w-full max-w-100 sm:max-w-115 sm:rounded-lg sm:border sm:border-hairline sm:bg-canvas sm:px-12 sm:py-12">
@@ -40,4 +48,10 @@ export default function LoginPage() {
       </main>
     </>
   );
+}
+
+async function RedirectIfSignedIn() {
+  const user = await getCurrentUser();
+  if (user) redirect(accountDestination(user).href);
+  return null;
 }

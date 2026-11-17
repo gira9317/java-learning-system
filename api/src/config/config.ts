@@ -27,3 +27,8 @@ export const runnerToken = getEnv("RUNNER_TOKEN", "dev-runner-token");
 // セッションの有効期限
 export const SESSION_DAYS_REMEMBER = 30; // 「サインインしたままにする」
 export const SESSION_HOURS_DEFAULT = 12; // それ以外（ブラウザを閉じるとクッキーも消える）
+
+// 前段のプロキシ（web の Next.js や nginx など）が付ける X-Forwarded-For を、接続元 IP として信頼するか。
+// API へ直接つながる環境で true にすると、ヘッダーを偽って試行回数の制限をすり抜けられるので、
+// API のポートを外に公開せず、プロキシ経由でしか届かないときだけ true にする
+export const trustProxy = process.env.TRUST_PROXY === "true";

@@ -31,6 +31,8 @@ services:
       WEB_ORIGIN: http://localhost:${WEB_PORT:-3000}
       # HTTPS なしで見るため、クッキーの Secure は付けない
       COOKIE_SECURE: "false"
+      # API のポートは外に出さず web 経由でしか届かないので、web が付ける X-Forwarded-For を接続元 IP として使う
+      TRUST_PROXY: "true"
       SEED_INITIAL_PASSWORD: initial-pass
       # 実行サーバー。合言葉は runner と同じ値にする
       RUNNER_URL: http://runner:5000

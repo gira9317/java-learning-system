@@ -2,3 +2,5 @@ node_modules
 dist
 .env
 .tmp/
+# 個人用の YouTube 埋め込み設定スクリプト（公開しない）
+scripts/youtube-embed.ts
