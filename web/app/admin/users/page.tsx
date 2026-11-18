@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { getUsers } from "@/api/admin-api";
 import { AdminHeader, Panel, PanelSkeleton, Table, Td } from "@/components/admin/admin-ui";
 import { CreateUserForm } from "@/components/admin/create-user-form";
+import { EggBadge } from "@/components/easter-badges";
 import { formatDateTime } from "@/lib/format";
 import { getCookieHeader, requireAdmin } from "@/lib/session";
 
@@ -41,6 +42,13 @@ async function UserList() {
               {u.name}
               {u.role === "admin" && <span className="ml-2 rounded-full bg-chip px-2 py-0.5 type-fine">研修担当者</span>}
               {u.must_change_password && <span className="ml-2 type-fine text-ink-muted-48">初回未サインイン</span>}
+              {u.eggs.length > 0 && (
+                <span className="ml-2 inline-flex gap-1 align-middle" aria-label={`バッジ ${u.eggs.length} 個`}>
+                  {u.eggs.map((egg) => (
+                    <EggBadge key={egg} egg={egg} solved size={20} />
+                  ))}
+                </span>
+              )}
             </Td>
             <Td className="whitespace-nowrap">
               {u.role === "admin" ? (

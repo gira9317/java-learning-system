@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { login } from "@/api/auth-api";
 import { ApiError } from "@/api/client";
+import { looksLikeScript, ScriptPrank } from "@/components/script-prank";
 
 type Errors = { id?: string; password?: string; form?: string };
 
@@ -13,6 +14,7 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
   const [submitting, setSubmitting] = useState(false);
+  const [prank, setPrank] = useState<string | null>(null);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -21,6 +23,11 @@ export function LoginForm() {
     if (!password) next.password = "パスワードを入力してください。";
     setErrors(next);
     if (Object.keys(next).length > 0) return;
+    // 社員番号にスクリプトを入れてきた人には、ちょっとしたいたずら（components/script-prank.tsx）
+    if (looksLikeScript(id)) {
+      setPrank(id);
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -40,6 +47,7 @@ export function LoginForm() {
 
   return (
     <form onSubmit={onSubmit} noValidate className="mt-10 space-y-4">
+      {prank && <ScriptPrank payload={prank} onClose={() => setPrank(null)} />}
       {errors.form && (
         <p role="alert" className="type-caption rounded-sm bg-danger/10 px-4 py-3 text-danger">
           {errors.form}

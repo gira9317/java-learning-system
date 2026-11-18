@@ -1,3 +1,4 @@
+import type { Egg } from "@/components/easter-badges";
 import type { LessonStatus } from "@/lib/lessons";
 import type { ExerciseQuestion } from "./lessons-api";
 import { request } from "./client";
@@ -17,6 +18,8 @@ export type AdminUserRow = {
   current_lesson: string | null;
   pending_count: number;
   last_activity_at: string | null;
+  /** 見つけたイースターエッグのバッジ（見つけた順） */
+  eggs: Egg[];
 };
 
 export type AdminUserDetail = {

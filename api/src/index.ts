@@ -9,6 +9,7 @@ import admin from "./routes/admin.js";
 import lectures from "./routes/lectures.js";
 import lessons from "./routes/lessons.js";
 import notifications from "./routes/notifications.js";
+import easter from "./routes/easter.js";
 
 const app = new Hono();
 
@@ -22,6 +23,7 @@ app.route("/lectures", lectures);
 app.route("/lessons", lessons);
 app.route("/notifications", notifications);
 app.route("/admin", admin);
+app.route("/easter", easter);
 
 app.notFound((c) => c.json({ message: "Not Found" }, 404));
 app.onError((error, c) => {

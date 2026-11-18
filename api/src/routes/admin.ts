@@ -41,7 +41,8 @@ admin.get("/users", async (c) => {
              WHERE cp.user_id = u.id AND cp.status = 'in-progress'
              ORDER BY l.sort_order LIMIT 1) AS current_lesson,
            (SELECT COUNT(*)::int FROM submissions s WHERE s.user_id = u.id AND s.status = 'pending') AS pending_count,
-           GREATEST(MAX(p.updated_at), (SELECT MAX(s.created_at) FROM submissions s WHERE s.user_id = u.id)) AS last_activity_at
+           GREATEST(MAX(p.updated_at), (SELECT MAX(s.created_at) FROM submissions s WHERE s.user_id = u.id)) AS last_activity_at,
+           (SELECT COALESCE(array_agg(e.egg ORDER BY e.solved_at), '{}') FROM easter_eggs e WHERE e.user_id = u.id) AS eggs
     FROM users u
     LEFT JOIN lesson_progress p ON p.user_id = u.id
     GROUP BY u.id

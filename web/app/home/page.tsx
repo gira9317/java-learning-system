@@ -7,6 +7,8 @@ import { SiteFooter } from "@/components/site-footer";
 import { StatusChip } from "@/components/status-chip";
 import { getLessons } from "@/api/lessons-api";
 import { getLectureChapters } from "@/api/lectures-api";
+import { getSolvedEggs } from "@/api/easter-api";
+import { EggBadge, EGGS } from "@/components/easter-badges";
 import { getLessonSubmissions, type LessonSubmissions, type StageStatus } from "@/api/submissions-api";
 import { getCookieHeader, requireLearner } from "@/lib/session";
 import { pad, type Lesson } from "@/lib/lessons";
@@ -50,9 +52,10 @@ function HomeSkeleton() {
 async function HomeContent() {
   await requireLearner();
   const cookie = await getCookieHeader();
-  const [lessons, chapters] = await Promise.all([
+  const [lessons, chapters, eggs] = await Promise.all([
     getLessons({ cookie }),
     getLectureChapters({ cookie }),
+    getSolvedEggs({ cookie }),
   ]);
   const completed = lessons.filter((l) => l.status === "completed");
   const current = lessons.find((l) => l.status === "in-progress");
@@ -99,6 +102,15 @@ async function HomeContent() {
               </dd>
             </div>
           </dl>
+          {/* イースターエッグのバッジ。1 つでも見つけた人だけに出る（見つけていないものは伏せる） */}
+          {EGGS.some((e) => eggs[e.id]) && (
+            <div className="mt-5 flex items-center gap-2 border-t border-hairline pt-4">
+              <span className="type-fine mr-1 text-ink-muted-48">バッジ</span>
+              {EGGS.map((e) => (
+                <EggBadge key={e.id} egg={e.id} solved={Boolean(eggs[e.id])} size={28} />
+              ))}
+            </div>
+          )}
         </section>
       </div>
 

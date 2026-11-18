@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { EGG_ENV, eggSetup } from "./eggs.js";
 
 // 受講者のコードを、使い捨ての JDK コンテナの中でコンパイル・実行する。
 // 1 回のリクエストにつきコンテナを 1 つ起動し、コンパイルは 1 回、テストケースの数だけ実行して、最後に止める。
@@ -29,6 +30,8 @@ const SANDBOX_ARGS = [
   "--cap-drop", "ALL",
   "--security-opt", "no-new-privileges",
   "--workdir", "/work",
+  // イースターエッグ（eggs.ts）のヒント
+  ...Object.entries(EGG_ENV).flatMap(([k, v]) => ["--env", `${k}=${v}`]),
 ];
 
 export type RunCase = { args: string[]; stdin: string };
@@ -142,10 +145,16 @@ export async function runJava(code: string, cases: RunCase[]): Promise<RunResult
     });
     if (written.code !== 0) throw new Error(`コードを書き込めませんでした: ${written.stderr.trim()}`);
 
-    // コンパイル（エラーメッセージは日本語で）
+    // イースターエッグ（eggs.ts）の仕掛けを置く。失敗しても演習には関係ないので、隠しクラスなしで続ける
+    const eggs = eggSetup(code);
+    const placed = await docker(["exec", "-i", containerId, "sh"], { input: eggs.script, timeoutMs: 10_000 });
+    const eggSources = placed.code === 0 ? eggs.sources : [];
+
+    // コンパイル（エラーメッセージは日本語で）。終わったら隠しクラスのソースは消し、.class だけ残す
     const compileStart = Date.now();
+    const javac = ["javac", "-J-Xmx192m", "-J-Duser.language=ja", "-encoding", "UTF-8", "-d", "/work", "/work/Main.java", ...eggSources];
     const compiled = await docker(
-      ["exec", containerId, "javac", "-J-Xmx192m", "-J-Duser.language=ja", "-encoding", "UTF-8", "-d", "/work", "/work/Main.java"],
+      ["exec", containerId, "sh", "-c", `${javac.join(" ")}; status=$?; rm -f ${eggSources.join(" ")}; exit $status`],
       { timeoutMs: COMPILE_TIMEOUT_MS },
     );
     const compile = {
