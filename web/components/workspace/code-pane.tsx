@@ -144,6 +144,20 @@ export function CodePane({
     onSubmit({ code }, results);
   }
 
+  /**
+   * Ctrl+S / Ctrl+Enter（Mac は ⌘）で採点する。
+   * 提出（＝研修担当者のレビューに回る）は、意図せず送らないよう「提出する」ボタンを押したときだけにする。
+   * エディタ（Monaco）より先に受け取るため、キャプチャ段階で拾う。ブラウザの「ページを保存」も止める。
+   */
+  function onKeyDownCapture(e: React.KeyboardEvent) {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+    if (e.key !== "s" && e.key !== "S" && e.key !== "Enter") return;
+    if (e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!busy) void runGrade();
+  }
+
   const passed = results?.filter((r) => r.ok).length ?? 0;
   const busy = running !== null || submit.submitting;
   const allPassed = Boolean(results?.length && results.every((result) => result.ok));
@@ -154,38 +168,53 @@ export function CodePane({
       : !allPassed ? "失敗したテストを修正し、全テストに合格してから提出してください。" : undefined;
 
   return (
-    <>
+    <div className="contents" onKeyDownCapture={onKeyDownCapture}>
       <PaneHeader icon={<CodeIcon size={16} />} title="Javaコード" dark>
         <span className="hidden type-fine text-white/45 md:inline" role="status">
           {autosaveLabel(draftStatus)}
         </span>
-        <button
-          type="button"
-          className="btn type-caption text-white/60"
-          onClick={() => update(starter)}
-          aria-label="コードを初期状態に戻す"
-        >
-          <ResetIcon size={14} />
-          <span className="hidden sm:inline">リセット</span>
-        </button>
         <span className="on-dark">
           <button type="button" className="btn btn-secondary" onClick={run} disabled={busy}>
             <PlayIcon size={12} />
             実行
           </button>
         </span>
-        <span className="on-dark">
-          <button type="button" className="btn btn-secondary" onClick={runGrade} disabled={busy}>
+        <span className="on-dark" title="採点する（Ctrl+S / Ctrl+Enter）">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={runGrade}
+            disabled={busy}
+            aria-keyshortcuts="Control+S Control+Enter Meta+S Meta+Enter"
+          >
             採点する
           </button>
         </span>
         <SubmitButton control={{ ...submit, validationReason: busy ? "実行・採点・提出が終わるまでお待ちください。" : validationReason }} onClick={handleSubmit} />
       </PaneHeader>
       <StageBanner control={submit} dark />
-      {submit.stage.canSubmit && validationReason && <p role="status" className="shrink-0 bg-tile-1 px-4 py-2 type-caption text-white/70">{validationReason}</p>}
+      {submit.stage.canSubmit && validationReason && (
+        <p role="status" className="shrink-0 bg-tile-1 px-4 py-2 type-caption text-white/70">
+          {validationReason}
+          <span className="ml-2 text-white/45">Ctrl+S / Ctrl+Enter でも採点できます。</span>
+        </p>
+      )}
 
-      <div className="flex h-9 shrink-0 items-end gap-px bg-tile-1 px-2">
+      {/* リセットはファイルに対する操作なので、保存の表示や提出ボタンから離してファイルのタブの右に置く */}
+      <div className="flex h-9 shrink-0 items-end justify-between gap-px bg-tile-1 px-2">
         <span className="rounded-t-sm bg-tile-3 px-4 py-2 font-mono text-[12px] text-white/85">Main.java</span>
+        <button
+          type="button"
+          className="btn mb-1 rounded-full px-3 py-1 type-fine text-white/55 hover:bg-white/10 hover:text-white"
+          onClick={() => {
+            if (code !== starter && !window.confirm("コードを初期状態に戻します。書いたコードは消えます。よろしいですか？")) return;
+            update(starter);
+          }}
+          aria-label="コードを初期状態に戻す"
+        >
+          <ResetIcon size={13} />
+          リセット
+        </button>
       </div>
 
       <MonacoJavaEditor value={code} onChange={update} />
@@ -293,7 +322,7 @@ export function CodePane({
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
