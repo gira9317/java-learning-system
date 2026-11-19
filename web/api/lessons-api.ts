@@ -20,7 +20,13 @@ export type ExerciseQuestion = {
   title: string;
   prompt: string;
   starterCode: string;
-  examples: { args: string[]; expected: string; label?: string }[];
+  /** 最初から用意しておく Main.java 以外のファイル（複数ファイルのレッスン） */
+  starterFiles?: { path: string; content: string }[];
+  /** graded = 全テスト合格で提出できる。open = 自由制作（コンパイルが通れば提出でき、評価はレビュー） */
+  mode: "graded" | "open";
+  /** 対話で動かす問題。console = 1 行ずつ入力、othello = 盤面をクリックして打つ */
+  interactive?: "console" | "othello";
+  examples: { args: string[]; expected: string; label?: string; stdin?: string }[];
 };
 export type LessonDetail = Lesson & { material_md: string | null; exercises: ExerciseQuestion[] };
 

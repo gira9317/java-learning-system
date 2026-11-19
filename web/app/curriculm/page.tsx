@@ -16,6 +16,8 @@ const stages = [
   { id: "basics", title: "Javaの基本", description: "変数・条件分岐・繰り返し・配列を使って、小さな処理を組み立てます。", ids: [1, 2, 3, 4, 5, 6, 7], approach: "フロー図 → コード" },
   { id: "objects", title: "メソッドとクラス", description: "処理をメソッドに分け、データと振る舞いをクラスにまとめます。", ids: [8, 9], approach: "フロー図 → コード" },
   { id: "practice", title: "読みやすさとエラーへの備え", description: "動くコードを読みやすく整え、エラーへの対処も学びます。", ids: [16, 10], approach: "提出方法はレッスンごとに確認" },
+  { id: "advanced", title: "オブジェクト指向で組み立てる", description: "継承・インターフェース・コレクションを使い、package に分けた小さな業務システムを作ります。", ids: [17, 18, 19], approach: "コードのみ（複数ファイル）" },
+  { id: "making", title: "自分で作る", description: "正解が1つではない課題やオセロを、設計から考えて作ります。評価は研修担当者のレビューです。", ids: [20, 21], approach: "コードのみ（対話で実行）" },
 ];
 
 export default function CurriculumPage() {

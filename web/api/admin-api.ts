@@ -27,7 +27,7 @@ export type AdminUserDetail = {
   lessons: {
     id: number;
     number: number;
-    level: "intro" | "core" | "refactor";
+    level: "intro" | "core" | "refactor" | "advanced";
     title: string;
     status: LessonStatus;
     flow_status: SubmissionStatus | null;
@@ -63,7 +63,8 @@ export type AdminSubmissionRow = {
 };
 
 export type AdminSubmissionDetail = AdminSubmissionRow & {
-  question: ExerciseQuestion | null;
+  /** clarification は解釈が分かれるように書いた問題の、研修担当者向けのメモ（受講者には返さない） */
+  question: (ExerciseQuestion & { clarification: { point: string; answer: string } | null }) | null;
   content: FlowContent | CodeContent;
   auto_results: Record<string, unknown>[] | null;
   review_comment: string | null;

@@ -10,7 +10,7 @@ import { ReviewForm } from "@/components/admin/review-form";
 import { kindLabel, SubmissionChip } from "@/components/admin/submission-chip";
 import { CheckIcon, XIcon } from "@/components/icons";
 import { FlowPreview } from "@/components/workspace/flow-preview";
-import { CodeView } from "@/components/workspace/java-editor";
+import { CodeFilesView } from "@/components/workspace/java-editor";
 import { ProblemStatement } from "@/components/workspace/problem-statement";
 import { formatDateTime } from "@/lib/format";
 import { pad } from "@/lib/lessons";
@@ -71,12 +71,29 @@ async function SubmissionDetail({ params }: Pick<PageProps<"/admin/submissions/[
               <FlowPreview content={s.content as FlowContent} />
             </div>
           ) : (
-            <CodeView code={(s.content as CodeContent).code} />
+            <CodeFilesView code={(s.content as CodeContent).code} files={(s.content as CodeContent).files} />
           )}
         </Panel>
 
         <div className="space-y-6">
           {s.question && <Panel title="問題文"><ProblemStatement question={s.question} /></Panel>}
+          {s.question?.clarification && (
+            <Panel title="解釈が分かれる点（受講者には非表示）">
+              <dl className="space-y-2 type-caption">
+                <div>
+                  <dt className="type-caption-strong">曖昧にしている点</dt>
+                  <dd className="text-ink-muted-80">{s.question.clarification.point}</dd>
+                </div>
+                <div>
+                  <dt className="type-caption-strong">聞かれたときの回答</dt>
+                  <dd className="text-ink-muted-80">{s.question.clarification.answer}</dd>
+                </div>
+              </dl>
+              <p className="type-fine mt-3 text-ink-muted-48">
+                書く前に質問してほしい問題です。テストはこの回答の解釈で作っています（決め手になるケースは非公開）。
+              </p>
+            </Panel>
+          )}
           <Panel title="自動採点（参考）">
             <AutoResults kind={s.kind} results={s.auto_results} />
             <p className="type-fine mt-3 text-ink-muted-48">

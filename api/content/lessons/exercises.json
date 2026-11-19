@@ -9,7 +9,7 @@
   "2": [
     {"title":"2つの整数の合計","prompt":"2つの引数を整数に変換し、合計を表示してください。各値は-1000〜1000です。","tests":[{"args":["3","5"],"expected":"8"},{"args":["-4","4"],"expected":"0"},{"args":["0","-7"],"expected":"-7","hidden":true}]},
     {"title":"長方形の面積","prompt":"第1引数を横、第2引数を縦として、長方形の面積を整数で表示してください。各辺は1〜100です。","tests":[{"args":["3","4"],"expected":"12"},{"args":["1","8"],"expected":"8"},{"args":["100","100"],"expected":"10000","hidden":true}]},
-    {"title":"秒を分と秒に変換","prompt":"0〜10000の整数の秒数を第1引数で受け取り、`分:残りの秒`の形で表示してください。ゼロ埋めは不要です。割り算と余りを使いましょう。","tests":[{"args":["125"],"expected":"2:5"},{"args":["60"],"expected":"1:0"},{"args":["0"],"expected":"0:0","hidden":true}]},
+    {"title":"秒を分と秒に変換","prompt":"0〜10000の整数の秒数を第1引数で受け取り、`分:秒`の形で表示してください。割り算と余りを使いましょう。","tests":[{"args":["130"],"expected":"2:10"},{"args":["3599"],"expected":"59:59"},{"args":["125"],"expected":"2:5","hidden":true},{"args":["60"],"expected":"1:0","hidden":true},{"args":["0"],"expected":"0:0","hidden":true}],"clarification":{"point":"秒が1桁のときにゼロ埋め（2:05）するかどうか。","answer":"ゼロ埋めしない。125秒は 2:5、60秒は 1:0 と表示する。"}},
     {"title":"整数の平均","prompt":"整数3つを引数で受け取り、平均の整数部分を表示してください。値はすべて0〜100で、小数部分は切り捨てます。","tests":[{"args":["10","20","30"],"expected":"20"},{"args":["1","2","2"],"expected":"1"},{"args":["0","0","0"],"expected":"0","hidden":true}]},
     {"title":"単価と個数","prompt":"第1引数の単価と第2引数の個数を整数で受け取り、`合計: 金額円`と表示してください。単価は0〜10000、個数は0〜100です。コロンの後に半角空白を1つ入れます。","tests":[{"args":["120","3"],"expected":"合計: 360円"},{"args":["500","0"],"expected":"合計: 0円"},{"args":["0","10"],"expected":"合計: 0円","hidden":true}]}
   ],
@@ -17,7 +17,7 @@
     {"title":"合否判定","prompt":"第1引数で0〜100の点数を受け取り、60点以上なら`合格`、60点未満なら`不合格`と表示してください。","tests":[{"args":["80"],"expected":"合格"},{"args":["60"],"expected":"合格","label":"境界値"},{"args":["59"],"expected":"不合格"},{"args":["0"],"expected":"不合格","hidden":true},{"args":["100"],"expected":"合格","hidden":true}]},
     {"title":"偶数と奇数","prompt":"第1引数の整数が偶数なら`偶数`、そうでなければ`奇数`と表示してください。値は-1000〜1000です。","tests":[{"args":["4"],"expected":"偶数"},{"args":["3"],"expected":"奇数"},{"args":["-3"],"expected":"奇数","hidden":true},{"args":["0"],"expected":"偶数","hidden":true}]},
     {"title":"正・負・ゼロ","prompt":"第1引数の整数が正なら`正`、負なら`負`、0なら`ゼロ`と表示してください。値は-1000〜1000です。","tests":[{"args":["5"],"expected":"正"},{"args":["0"],"expected":"ゼロ"},{"args":["-1"],"expected":"負","hidden":true}]},
-    {"title":"営業時間","prompt":"第1引数で0〜23の時刻を受け取り、9時以上18時未満なら`営業中`、それ以外なら`営業時間外`と表示してください。","tests":[{"args":["9"],"expected":"営業中"},{"args":["18"],"expected":"営業時間外"},{"args":["8"],"expected":"営業時間外","hidden":true},{"args":["17"],"expected":"営業中","hidden":true}]},
+    {"title":"営業時間","prompt":"第1引数で0〜23の時刻（時）を受け取り、営業時間の9時〜18時なら`営業中`、それ以外なら`営業時間外`と表示してください。","tests":[{"args":["12"],"expected":"営業中"},{"args":["3"],"expected":"営業時間外"},{"args":["18"],"expected":"営業時間外","hidden":true},{"args":["9"],"expected":"営業中","hidden":true},{"args":["8"],"expected":"営業時間外","hidden":true},{"args":["17"],"expected":"営業中","hidden":true}],"clarification":{"point":"「9時〜18時」に18時ちょうどを含むかどうか。","answer":"18時は閉店の時刻なので含まない（9以上18未満）。9時は営業中。"}},
     {"title":"3段階の評価","prompt":"第1引数の0〜100の点数について、80点以上は`A`、60点以上80点未満は`B`、60点未満は`C`と表示してください。","tests":[{"args":["80"],"expected":"A"},{"args":["60"],"expected":"B"},{"args":["79"],"expected":"B","hidden":true},{"args":["59"],"expected":"C","hidden":true}]}
   ],
   "4": [
@@ -39,14 +39,14 @@
     {"title":"整数の桁数","prompt":"第1引数の0〜1000000の整数の桁数をwhile文で求めて表示してください。0の桁数は1です。","tests":[{"args":["123"],"expected":"3"},{"args":["0"],"expected":"1"},{"args":["1000000"],"expected":"7","hidden":true}]},
     {"title":"各桁の合計","prompt":"第1引数の0〜1000000の整数を10で割りながら、各桁の数字の合計を表示してください。","tests":[{"args":["1234"],"expected":"10"},{"args":["0"],"expected":"0"},{"args":["909"],"expected":"18","hidden":true}]},
     {"title":"2で割れる回数","prompt":"第1引数の正の整数（1〜1000000）が、余りなく2で割れる回数をwhile文で求めて表示してください。割れなくなったら終了します。","tests":[{"args":["12"],"expected":"2"},{"args":["7"],"expected":"0"},{"args":["16"],"expected":"4","hidden":true},{"args":["1"],"expected":"0","hidden":true}]},
-    {"title":"目標まで貯金","prompt":"第1引数の目標額（0〜100000）、第2引数の毎月の貯金額（1〜10000）を受け取り、0円から目標以上になるまで必要な月数をwhile文で求めてください。利息はありません。","tests":[{"args":["1000","300"],"expected":"4"},{"args":["0","100"],"expected":"0"},{"args":["900","300"],"expected":"3","hidden":true}]}
+    {"title":"目標まで貯金","prompt":"第1引数の目標額（0〜100000）、第2引数の毎月の貯金額（1〜10000）を受け取り、0円から貯め始めて目標額に届くまでに何か月かかるかをwhile文で求めて表示してください。利息はありません。","tests":[{"args":["1000","300"],"expected":"4"},{"args":["900","300"],"expected":"3","hidden":true},{"args":["0","100"],"expected":"0","hidden":true},{"args":["10000","3000"],"expected":"4","hidden":true}],"clarification":{"point":"目標額ちょうどになった月で達成とするか（以上か、超えるか）。目標額が0のときに何か月とするか。","answer":"目標額ちょうどで達成（貯金額 >= 目標額）。目標額が0なら、貯める前に達成しているので0か月。"}}
   ],
   "7": [
     {"title":"配列の合計","prompt":"0〜10個の整数の引数をint配列へ変換し、合計を表示してください。各整数は-100〜100です。引数が0個なら0とします。","tests":[{"args":["1","2","3"],"expected":"6"},{"args":[],"expected":"0"},{"args":["-2","5"],"expected":"3","hidden":true}]},
     {"title":"配列の最大値","prompt":"1〜10個の整数の引数をint配列へ変換し、最大値を表示してください。各整数は-100〜100で、引数は必ず1個以上あります。","tests":[{"args":["3","9","2"],"expected":"9"},{"args":["-5","-2","-9"],"expected":"-2"},{"args":["0"],"expected":"0","hidden":true}]},
     {"title":"逆順に表示","prompt":"0〜10個の引数を配列の末尾から順に1行ずつ表示してください。引数が0個なら何も表示しません。","tests":[{"args":["A","B","C"],"expected":"C\nB\nA"},{"args":[],"expected":""},{"args":["Java"],"expected":"Java","hidden":true}]},
     {"title":"条件に合う要素数","prompt":"0〜10個の整数の引数について、60以上の要素が何個あるか数えて表示してください。各整数は0〜100です。","tests":[{"args":["59","60","80"],"expected":"2"},{"args":[],"expected":"0"},{"args":["60","60"],"expected":"2","hidden":true}]},
-    {"title":"配列内を検索","prompt":"第1引数を検索対象の文字列、第2引数以降の0〜9個を検索する配列とします。内容が一致する要素があれば、配列内で最初に見つかる位置を0始まりで表示し、なければ-1と表示してください。文字列の比較にはequalsを使います。","tests":[{"args":["B","A","B","C"],"expected":"1"},{"args":["X","A","B"],"expected":"-1"},{"args":["A","A","A"],"expected":"0","hidden":true},{"args":["X"],"expected":"-1","hidden":true}]}
+    {"title":"配列内を検索","prompt":"第1引数を探す文字列、第2引数以降の0〜9個を検索する配列とします。一致する要素の位置を表示し、見つからなければ-1と表示してください。文字列の比較にはequalsを使います。","tests":[{"args":["X","A","B"],"expected":"-1"},{"args":["B","A","B","C"],"expected":"1","hidden":true},{"args":["A","A","A"],"expected":"0","hidden":true},{"args":["B","A","B","B"],"expected":"1","hidden":true},{"args":["X"],"expected":"-1","hidden":true}],"clarification":{"point":"位置を0から数えるか1から数えるか。一致する要素が複数あるとき、どれの位置を出すか。","answer":"0から数える（配列の添字と同じ）。複数あるときは最初に見つかった位置。"}}
   ],
   "8": [
     {"title":"合計を返すメソッド","prompt":"`static int add(int a, int b)`を作り、第1・第2引数の整数を渡して戻り値を表示してください。各値は-1000〜1000です。","tests":[{"args":["3","5"],"expected":"8"},{"args":["-3","3"],"expected":"0"},{"args":["-2","-4"],"expected":"-6","hidden":true}]},

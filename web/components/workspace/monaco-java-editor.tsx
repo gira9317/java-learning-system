@@ -112,11 +112,18 @@ const EDITOR_OPTIONS: Monaco.editor.IStandaloneEditorConstructionOptions = {
           contextmenu: true,
 };
 
-/** Monacoを明示的に所有し、Fast Refresh/Strict Mode後に破棄済みインスタンスを再利用しない。 */
-export function MonacoJavaEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+/**
+ * Monacoを明示的に所有し、Fast Refresh/Strict Mode後に破棄済みインスタンスを再利用しない。
+ * 複数ファイルのときは path ごとにモデルを持ち、ファイルを切り替えても元に戻す履歴やカーソル位置を残す。
+ */
+export function MonacoJavaEditor({ value, onChange, path = "Main.java" }: { value: string; onChange: (v: string) => void; path?: string }) {
   const host = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<typeof Monaco | null>(null);
+  const modelsRef = useRef(new Map<string, Monaco.editor.ITextModel>());
+  const decorationsRef = useRef<Monaco.editor.IEditorDecorationsCollection | null>(null);
   const valueRef = useRef(value);
+  const pathRef = useRef(path);
   const changeRef = useRef(onChange);
   const applyingValue = useRef(false);
   const [error,setError] = useState(false);
@@ -125,16 +132,28 @@ export function MonacoJavaEditor({ value, onChange }: { value: string; onChange:
 
   useEffect(() => {
     valueRef.current = value;
+    pathRef.current = path;
     changeRef.current = onChange;
     const editor = editorRef.current;
-    const model = editor?.getModel();
-    if (!editor || !model || model.isDisposed() || model.getValue() === value) return;
+    const monaco = monacoRef.current;
+    if (!editor || !monaco) return;
+    // ファイルを切り替えたら、そのファイルのモデルに付け替える（初めて開くファイルはモデルを作る）
+    let model = modelsRef.current.get(path);
+    if (!model || model.isDisposed()) {
+      model = monaco.editor.createModel(value,"java");
+      modelsRef.current.set(path,model);
+    }
+    if (editor.getModel() !== model) {
+      editor.setModel(model);
+      decorationsRef.current?.set(rainbowDecorations(model,monaco));
+    }
+    if (model.getValue() === value) return;
     applyingValue.current = true;
     try {
       editor.executeEdits("external-value",[{range:model.getFullModelRange(),text:value,forceMoveMarkers:true}]);
       editor.pushUndoStop();
     } finally { applyingValue.current = false; }
-  },[value,onChange]);
+  },[value,onChange,path,ready]);
 
   useEffect(() => {
     const element = host.current;
@@ -142,7 +161,7 @@ export function MonacoJavaEditor({ value, onChange }: { value: string; onChange:
     const container: HTMLDivElement = element;
     let active = true;
     let editor: Monaco.editor.IStandaloneCodeEditor | null = null;
-    let model: Monaco.editor.ITextModel | null = null;
+    const models = modelsRef.current;
     let observer: ResizeObserver | null = null;
     let listener: Monaco.IDisposable | null = null;
     let decorations: Monaco.editor.IEditorDecorationsCollection | null = null;
@@ -153,26 +172,30 @@ export function MonacoJavaEditor({ value, onChange }: { value: string; onChange:
       if (frame !== null) { cancelAnimationFrame(frame); frame = null; }
       listener?.dispose();
       if (editorRef.current === editor) editorRef.current = null;
+      if (decorationsRef.current === decorations) decorationsRef.current = null;
       // モデルは別途作成しているため、描画側を破棄してからモデルを破棄する。
       decorations?.clear();
       decorations = null;
       editor?.dispose();
       editor = null;
-      if (model && !model.isDisposed()) model.dispose();
-      model = null;
+      for (const m of models.values()) if (!m.isDisposed()) m.dispose();
+      models.clear();
       container.replaceChildren();
     }
 
     void loader.init().then((monaco) => {
       if (!active || !container.isConnected) return;
       defineTheme(monaco);
+      monacoRef.current = monaco;
       const createdModel = monaco.editor.createModel(valueRef.current,"java");
-      model = createdModel;
+      models.set(pathRef.current,createdModel);
       const createdEditor = monaco.editor.create(container,{...EDITOR_OPTIONS,model:createdModel,theme:THEME});
       editor = createdEditor;
       editorRef.current = createdEditor;
       decorations = createdEditor.createDecorationsCollection(rainbowDecorations(createdModel,monaco));
+      decorationsRef.current = decorations;
       listener = createdEditor.onDidChangeModelContent(() => {
+        const model = editor?.getModel();
         if (!active || !editor || !model || model.isDisposed()) return;
         decorations?.set(rainbowDecorations(model,monaco));
         if (!applyingValue.current) changeRef.current(editor.getValue());

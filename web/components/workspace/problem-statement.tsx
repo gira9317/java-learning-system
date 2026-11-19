@@ -6,16 +6,24 @@ export function ProblemStatement({ question }: { question: ExerciseQuestion }) {
     <div>
       <h3 className="type-tagline">{question.title}</h3>
       <div className="mt-3"><Markdown>{question.prompt}</Markdown></div>
-      <p className="type-fine mt-4 text-ink-muted-48">
-        引数は実行欄に半角スペース区切りで入力します。出力は指定された内容だけを表示してください。
-      </p>
-      <h4 className="type-caption-strong mt-6">入出力例</h4>
+      {question.mode === "open" ? (
+        <p className="type-fine mt-4 rounded-sm bg-parchment px-3 py-2 text-ink-muted-80">
+          自由制作の問題です。正解は 1 つではありません。コンパイルが通れば提出でき、研修担当者がレビューで評価します。
+          {question.interactive && " 「対話」タブで、実際に入力しながら動かせます。"}
+        </p>
+      ) : (
+        <p className="type-fine mt-4 text-ink-muted-48">
+          引数は実行欄に半角スペース区切りで入力します。出力は指定された内容だけを表示してください。
+        </p>
+      )}
+      {question.examples.length > 0 && <h4 className="type-caption-strong mt-6">{question.mode === "open" ? "動作の例（目安）" : "入出力例"}</h4>}
       <ul className="mt-3 space-y-3">
         {question.examples.map((example, index) => (
           <li key={index} className="overflow-hidden rounded-lg border border-hairline type-caption">
             <p className="bg-parchment px-3 py-2">例 {index + 1}{example.label && ` · ${example.label}`}</p>
             <dl className="space-y-2 p-3">
               <div><dt className="text-ink-muted-48">コマンドライン引数</dt><dd className="mt-1 whitespace-pre-wrap break-words font-mono">{example.args.join(" ") || "（なし）"}</dd></div>
+              {example.stdin && <div><dt className="text-ink-muted-48">標準入力</dt><dd className="mt-1 whitespace-pre-wrap break-words font-mono">{example.stdin}</dd></div>}
               <div><dt className="text-ink-muted-48">期待する出力</dt><dd className="mt-1 whitespace-pre-wrap break-words font-mono">{example.expected || "（出力なし）"}</dd></div>
             </dl>
           </li>

@@ -6,7 +6,7 @@ import { pool } from "../db.js";
 import { createAccount } from "../lib/accounts.js";
 import { generateInitialPassword } from "../lib/password.js";
 import { completeLesson } from "../lib/progress.js";
-import { getPublicExercises } from "../lib/exercises.js";
+import { getReviewExercise } from "../lib/exercises.js";
 import { authMiddleware, requireAdmin, requirePasswordChanged } from "../middleware/authMiddleware.js";
 import { createUserSchema } from "../schemas/admin.js";
 import { lectureIdSchema, updateLectureSchema } from "../schemas/lectures.js";
@@ -201,7 +201,7 @@ admin.get("/submissions/:id", async (c) => {
     return c.json({ message: "提出が見つかりません" }, 404);
   }
   const submission = result.rows[0];
-  const question = (await getPublicExercises(submission.lesson_id)).find((q) => q.number === submission.question_no) ?? null;
+  const question = await getReviewExercise(submission.lesson_id, submission.question_no);
   return c.json({ submission: { ...submission, question } });
 });
 

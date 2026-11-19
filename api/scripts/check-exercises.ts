@@ -4,9 +4,10 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { pool } from "../src/db.js";
 import { hashToken } from "../src/lib/session.js";
 import { getExercises, getPublicExercises } from "../src/lib/exercises.js";
-import { gradeCode, maskHidden } from "../src/lib/runner.js";
+import { canSubmitGrade, gradeCode, maskHidden } from "../src/lib/runner.js";
 import { completeLesson } from "../src/lib/progress.js";
 import { readabilitySolutions } from "./readability-solutions.js";
+import { advancedSolutions } from "./advanced-solutions.js";
 
 // 問題文の仕様から作った参照実装。クライアントには配信しない。
 const solutions: Record<number, string[]> = {
@@ -123,10 +124,10 @@ try {
   assert.equal(detail.lesson.exercises.length, 5);
   assert.ok(detail.lesson.exercises.every((q: Record<string, unknown>) => !("tests" in q)));
   const catalog = await request("/lessons/catalog", user.token);
-  assert.equal(catalog.lessons.length, 16);
+  assert.equal(catalog.lessons.length, 21);
   assert.deepEqual(catalog.lessons.slice(0,5).map((l: {id:number}) => l.id), [11,12,13,14,15]);
-  assert.deepEqual(catalog.lessons.map((l: {number:number}) => l.number), Array.from({length:16},(_,i)=>i+1));
-  assert.deepEqual(catalog.lessons.slice(-3).map((l: {id:number}) => l.id), [9,16,10]);
+  assert.deepEqual(catalog.lessons.map((l: {number:number}) => l.number), Array.from({length:21},(_,i)=>i+1));
+  assert.deepEqual(catalog.lessons.slice(-8).map((l: {id:number}) => l.id), [9,16,10,17,18,19,20,21]);
   await pool.query(`INSERT INTO lesson_progress(user_id,lesson_id,status) VALUES($1,11,'in-progress')`,[user.id]);
   const introState = await request("/lessons/11/submissions?question=1",user.token);
   assert.equal(introState.code.canSubmit,true);
@@ -213,6 +214,56 @@ try {
     console.log(`PASS: Lesson ${lesson}, all 5 reference programs`);
   }
   console.log(`PASS: 80 reference programs, ${caseCount} test cases; 5 original refactoring programs also verified`);
+
+  // 応用編：複数ファイル（package）の参照解答。自由制作はコンパイルが通れば提出できる
+  let advancedCases = 0;
+  for (const lesson of [17, 18, 19, 20, 21]) {
+    const questions = await getExercises(lesson);
+    assert.equal(questions.length, 5);
+    for (const question of questions) {
+      const sol = advancedSolutions[lesson][question.number - 1];
+      const result = await gradeCode(lesson, sol.code, question.number, sol.files ?? []);
+      assert.ok(result?.compile.ok, `Compile ${lesson}-${question.number}: ${result?.compile.output}`);
+      assert.ok(result.results.every((r) => r.ok), `Grade ${lesson}-${question.number}: ${JSON.stringify(result.results)}`);
+      assert.ok(canSubmitGrade(result));
+      if (question.mode === "open") assert.equal(result.mode, "open");
+      else assert.ok(result.results.length > 0);
+      if (question.starterFiles) {
+        const starter = await gradeCode(lesson, question.starterCode, question.number, question.starterFiles);
+        assert.ok(starter?.compile.ok, `Starter compiles ${lesson}-${question.number}: ${starter?.compile.output}`);
+      }
+      advancedCases += result.results.length;
+    }
+    console.log(`PASS: Lesson ${lesson}, all 5 reference programs (multi-file)`);
+  }
+  console.log(`PASS: 25 advanced reference programs, ${advancedCases} test cases`);
+
+  // 応用編の API：複数ファイルの提出・自由制作の提出・対話の実行と持ち主の確認
+  await pool.query(`INSERT INTO lesson_progress(user_id,lesson_id,status) VALUES($1,17,'in-progress'),($1,20,'in-progress'),($1,21,'in-progress')`, [user.id]);
+  const advancedLesson = await request("/lessons/17", user.token);
+  assert.equal(advancedLesson.lesson.multi_file, true);
+  assert.equal(advancedLesson.lesson.level, "advanced");
+  const pay = advancedSolutions[17][0];
+  const multi = await request("/lessons/17/submissions?question=1", user.token, "POST", { kind: "code", content: { code: pay.code, files: pay.files } }, 201);
+  const stored = await request(`/admin/submissions/${multi.submission.id}`, admin.token);
+  assert.equal(stored.submission.content.files.length, pay.files!.length);
+  await request("/lessons/17/grade?question=1", user.token, "POST", { code: pay.code, files: [{ path: "../evil/X.java", content: "" }] }, 400);
+  const openQ = await request("/lessons/20?question=1", user.token);
+  assert.equal(openQ.lesson.exercises[0].mode, "open");
+  assert.equal(openQ.lesson.exercises[0].interactive, "console");
+  const vending = advancedSolutions[20][0];
+  await request("/lessons/20/submissions?question=1", user.token, "POST", { kind: "code", content: { code: vending.code, files: vending.files } }, 201);
+  await request("/lessons/20/submissions?question=2", user.token, "POST", { kind: "code", content: { code: "public class Main { oops }" } }, 422);
+  const game = advancedSolutions[21][3];
+  const started = await request("/lessons/21/sessions?question=4", user.token, "POST", { code: game.code, files: game.files });
+  assert.ok(started.compile.ok && started.sessionId);
+  assert.match(started.first.output, /  1 2 3 4 5 6 7 8/);
+  const reply = await request(`/lessons/21/sessions/${started.sessionId}/input?question=4`, user.token, "POST", { line: "3 4" });
+  assert.match(reply.output, /白: [1-8] [1-8]/);
+  await request(`/lessons/21/sessions/${started.sessionId}/input?question=4`, admin.token, "POST", { line: "3 4" }, 404);
+  await request(`/lessons/21/sessions/${started.sessionId}?question=4`, user.token, "DELETE");
+  await request(`/lessons/21/sessions/${started.sessionId}/input?question=4`, user.token, "POST", { line: "3 4" }, 404);
+  console.log("PASS: multi-file submissions, open-mode submissions, interactive sessions and their ownership");
 } finally {
   if (ids.length) await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [ids]);
   await pool.end();

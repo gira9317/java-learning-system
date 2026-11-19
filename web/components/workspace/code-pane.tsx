@@ -3,14 +3,28 @@
 import { useRef, useState } from "react";
 import { ApiError } from "@/api/client";
 import {
+  getLessonSubmissions,
   gradeCode,
   runCode,
   type CodeContent,
+  type CodeFile,
   type CompileResult,
   type GradeCaseResult,
   type RunCaseResult,
 } from "@/api/submissions-api";
 import { CheckIcon, CodeIcon, PlayIcon, ResetIcon, XIcon } from "@/components/icons";
+import {
+  MAIN_FILE,
+  allFolders,
+  newFileTemplate,
+  retarget,
+  sortSources,
+  toContent,
+  toSources,
+  type Source,
+} from "@/lib/code-files";
+import { FileExplorer } from "./file-explorer";
+import { InteractivePanel } from "./interactive-panel";
 import { MonacoJavaEditor } from "./monaco-java-editor";
 import { PaneHeader } from "./resizable-panes";
 import { StageBanner, SubmitButton, type SubmitControl } from "./submission-status";
@@ -57,6 +71,10 @@ export function CodePane({
   submit,
   onSubmit,
   saveDraft,
+  multiFile = false,
+  starterFiles,
+  mode = "graded",
+  interactive,
 }: {
   lessonId: number;
   questionNo?: number;
@@ -69,14 +87,30 @@ export function CodePane({
   onSubmit: (content: CodeContent, results: TestResult[]) => void;
   /** 下書きの保存（手を止めたときと、ページを離れるときに自動で呼ぶ） */
   saveDraft: (content: CodeContent, options: { keepalive: boolean }) => Promise<unknown>;
+  /** フォルダ（package）とファイルを作れるようにする（クラス以降のレッスン） */
+  multiFile?: boolean;
+  /** 最初から用意しておく Main.java 以外のファイル */
+  starterFiles?: CodeFile[];
+  /** graded = 全テスト合格で提出できる。open = 自由制作（コンパイルが通れば提出でき、評価はレビュー） */
+  mode?: "graded" | "open";
+  /** 対話で動かす問題なら、コンソールに「対話」タブを出す */
+  interactive?: "console" | "othello";
 }) {
-  const [code, setCode] = useState(initial?.code ?? starter);
+  const starterContent: CodeContent = starterFiles?.length ? { code: starter, files: starterFiles } : { code: starter };
+  // Main.java も含めた全ファイル。採点・提出・下書きでは { code, files } の形に戻す
+  const [sources, setSources] = useState<Source[]>(() => toSources(initial ?? starterContent));
+  const [extraFolders, setExtraFolders] = useState<string[]>([]);
+  const [activePath, setActivePath] = useState(MAIN_FILE);
+  const content = toContent(sources);
+  const code = JSON.stringify(content);
   const currentCode = useRef(code);
-  const draftStatus = useAutosave<CodeContent>({ code }, saveDraft);
+  const draftStatus = useAutosave<CodeContent>(content, saveDraft);
+  const active = sources.find((s) => s.path === activePath) ?? sources[0];
+  const folders = allFolders(sources, extraFolders);
   const [argsText, setArgsText] = useState(initialArgs.join(" "));
   const [stdin, setStdin] = useState("");
   const [stdinOpen, setStdinOpen] = useState(false);
-  const [tab, setTab] = useState<"output" | "tests">("output");
+  const [tab, setTab] = useState<"output" | "tests" | "interactive">(interactive ? "interactive" : "output");
   // コンソールは普段たたんでおき、エディタを広く使う。実行・採点・提出したときに開く
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [running, setRunning] = useState<"run" | "grade" | null>(null);
@@ -87,12 +121,58 @@ export function CodePane({
   const currentGrade = grade?.code === code ? grade : null;
   const results = currentGrade?.compile.ok ? currentGrade.results : null;
 
-  function update(next: string) {
-    currentCode.current = next;
-    setCode(next);
+  /** ファイルの一覧を変える。中身が変われば採点結果は古くなる */
+  function replaceSources(next: Source[]) {
+    const sorted = sortSources(next);
+    currentCode.current = JSON.stringify(toContent(sorted));
+    setSources(sorted);
     if (grade) {
       setGrade(null);
       onGraded(null);
+    }
+  }
+
+  /** エディタで開いているファイルの中身が変わった */
+  function update(next: string) {
+    replaceSources(sources.map((s) => (s.path === active.path ? { ...s, content: next } : s)));
+  }
+
+  function createFile(path: string) {
+    replaceSources([...sources, { path, content: newFileTemplate(path) }]);
+    setActivePath(path);
+  }
+
+  function renameFile(from: string, to: string) {
+    replaceSources(sources.map((s) => (s.path === from ? { path: to, content: retarget(s.content, from, to) } : s)));
+    if (activePath === from) setActivePath(to);
+  }
+
+  function remove(target: { kind: "file" | "folder"; path: string }) {
+    const inside = (p: string) => (target.kind === "file" ? p === target.path : p.startsWith(`${target.path}/`));
+    const doomed = sources.filter((s) => inside(s.path));
+    const label = target.kind === "file" ? target.path : `${target.path}/ と中のファイル ${doomed.length} 個`;
+    if (doomed.length > 0 && !window.confirm(`${label}を削除します。よろしいですか？`)) return;
+    replaceSources(sources.filter((s) => !inside(s.path)));
+    if (target.kind === "folder") setExtraFolders((fs) => fs.filter((f) => f !== target.path && !f.startsWith(`${target.path}/`)));
+    if (inside(activePath)) setActivePath(MAIN_FILE);
+  }
+
+  /** 前の問題の下書き（なければ最後の提出）を読み込む。少しずつ育てていくレッスン（オセロなど）用 */
+  async function loadPrevious() {
+    const previous = questionNo - 1;
+    try {
+      const s = await getLessonSubmissions(lessonId, { questionNo: previous });
+      const loaded = s.drafts.code?.content ?? (s.latest.code?.content as CodeContent | undefined);
+      if (!loaded) {
+        window.alert(`第${previous}問のコードがまだありません。`);
+        return;
+      }
+      if (!window.confirm(`第${previous}問のコード（ファイル ${toSources(loaded).length} 個）で、今のファイルをすべて置き換えます。よろしいですか？`)) return;
+      replaceSources(toSources(loaded));
+      setExtraFolders([]);
+      setActivePath(MAIN_FILE);
+    } catch (e) {
+      window.alert(errorMessage(e));
     }
   }
 
@@ -103,7 +183,7 @@ export function CodePane({
     setRunning("run");
     setError(null);
     try {
-      const r = await runCode(lessonId, { code, args, stdin }, questionNo);
+      const r = await runCode(lessonId, { ...content, args, stdin }, questionNo);
       setOutput({ args, ...r });
     } catch (e) {
       setOutput(null);
@@ -116,12 +196,13 @@ export function CodePane({
   /** 採点して結果を表示する。失敗したら null */
   async function runGrade() {
     const gradedCode = code;
+    const gradedContent = content;
     setTab("tests");
     setConsoleOpen(true);
     setRunning("grade");
     setError(null);
     try {
-      const g = await gradeCode(lessonId, gradedCode, questionNo);
+      const g = await gradeCode(lessonId, gradedContent, questionNo);
       if (currentCode.current !== gradedCode) return null;
       setGrade({ ...g, code: gradedCode });
       onGraded(g.compile.ok ? g.results : []);
@@ -140,8 +221,8 @@ export function CodePane({
 
   // 合格したコードだけを送る。API側でも同じコードを必ず採点し直す。
   function handleSubmit() {
-    if (!allPassed || busy || !submit.stage.canSubmit || !results) return;
-    onSubmit({ code }, results);
+    if (!submittable || busy || !submit.stage.canSubmit || !results) return;
+    onSubmit(content, results);
   }
 
   /**
@@ -161,11 +242,17 @@ export function CodePane({
   const passed = results?.filter((r) => r.ok).length ?? 0;
   const busy = running !== null || submit.submitting;
   const allPassed = Boolean(results?.length && results.every((result) => result.ok));
+  const open = mode === "open";
+  const gradeLabel = open ? "確認する" : "採点する";
+  // 自由制作はコンパイルが通れば提出できる（テストは動作の目安）
+  const submittable = open ? Boolean(results) : allPassed;
   const validationReason = !currentGrade
-    ? "先に「採点する」で全テストに合格してください。コードを変更した場合は再採点が必要です。"
+    ? open
+      ? "先に「確認する」でコンパイルが通るか確かめてください。コードを変更した場合はもう一度確認します。"
+      : "先に「採点する」で全テストに合格してください。コードを変更した場合は再採点が必要です。"
     : !currentGrade.compile.ok
-      ? "コンパイルエラーを修正して、再採点してください。"
-      : !allPassed ? "失敗したテストを修正し、全テストに合格してから提出してください。" : undefined;
+      ? open ? "コンパイルエラーを修正して、もう一度確認してください。" : "コンパイルエラーを修正して、再採点してください。"
+      : !submittable ? "失敗したテストを修正し、全テストに合格してから提出してください。" : undefined;
 
   return (
     <div className="contents" onKeyDownCapture={onKeyDownCapture}>
@@ -179,7 +266,7 @@ export function CodePane({
             実行
           </button>
         </span>
-        <span className="on-dark" title="採点する（Ctrl+S / Ctrl+Enter）">
+        <span className="on-dark" title={`${gradeLabel}（Ctrl+S / Ctrl+Enter）`}>
           <button
             type="button"
             className="btn btn-secondary"
@@ -187,7 +274,7 @@ export function CodePane({
             disabled={busy}
             aria-keyshortcuts="Control+S Control+Enter Meta+S Meta+Enter"
           >
-            採点する
+            {gradeLabel}
           </button>
         </span>
         <SubmitButton control={{ ...submit, validationReason: busy ? "実行・採点・提出が終わるまでお待ちください。" : validationReason }} onClick={handleSubmit} />
@@ -196,41 +283,75 @@ export function CodePane({
       {submit.stage.canSubmit && validationReason && (
         <p role="status" className="shrink-0 bg-tile-1 px-4 py-2 type-caption text-white/70">
           {validationReason}
-          <span className="ml-2 text-white/45">Ctrl+S / Ctrl+Enter でも採点できます。</span>
+          <span className="ml-2 text-white/45">Ctrl+S / Ctrl+Enter でも{open ? "確認" : "採点"}できます。</span>
         </p>
       )}
 
-      {/* リセットはファイルに対する操作なので、保存の表示や提出ボタンから離してファイルのタブの右に置く */}
-      <div className="flex h-9 shrink-0 items-end justify-between gap-px bg-tile-1 px-2">
-        <span className="rounded-t-sm bg-tile-3 px-4 py-2 font-mono text-[12px] text-white/85">Main.java</span>
-        <button
-          type="button"
-          className="btn mb-1 rounded-full px-3 py-1 type-fine text-white/55 hover:bg-white/10 hover:text-white"
-          onClick={() => {
-            if (code !== starter && !window.confirm("コードを初期状態に戻します。書いたコードは消えます。よろしいですか？")) return;
-            update(starter);
-          }}
-          aria-label="コードを初期状態に戻す"
-        >
-          <ResetIcon size={13} />
-          リセット
-        </button>
-      </div>
+      <div className="flex min-h-0 flex-1">
+        {multiFile && (
+          <FileExplorer
+            sources={sources}
+            folders={folders}
+            active={active.path}
+            onOpen={setActivePath}
+            onCreateFile={createFile}
+            onCreateFolder={(path) => setExtraFolders((fs) => [...fs, path])}
+            onRename={renameFile}
+            onDelete={remove}
+          />
+        )}
+        <div className="flex min-w-0 flex-1 flex-col">
+          {/* リセットはファイルに対する操作なので、保存の表示や提出ボタンから離してファイルのタブの右に置く */}
+          <div className="flex h-9 shrink-0 items-end justify-between gap-px bg-tile-1 px-2">
+            <span className="truncate rounded-t-sm bg-tile-3 px-4 py-2 font-mono text-[12px] text-white/85">{active.path}</span>
+            <span className="flex shrink-0 items-center gap-1">
+            {multiFile && questionNo > 1 && (
+              <button
+                type="button"
+                className="btn mb-1 shrink-0 rounded-full px-3 py-1 type-fine text-white/55 hover:bg-white/10 hover:text-white"
+                onClick={loadPrevious}
+                title={`第${questionNo - 1}問で書いたファイルを読み込んで、続きから作ります`}
+              >
+                第{questionNo - 1}問から読み込む
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn mb-1 shrink-0 rounded-full px-3 py-1 type-fine text-white/55 hover:bg-white/10 hover:text-white"
+              onClick={() => {
+                const message = multiFile
+                  ? "すべてのファイルを初期状態に戻します。追加したファイルも消えます。よろしいですか？"
+                  : "コードを初期状態に戻します。書いたコードは消えます。よろしいですか？";
+                if (code !== JSON.stringify(starterContent) && !window.confirm(message)) return;
+                replaceSources(toSources(starterContent));
+                setExtraFolders([]);
+                setActivePath(MAIN_FILE);
+              }}
+              aria-label="コードを初期状態に戻す"
+            >
+              <ResetIcon size={13} />
+              リセット
+            </button>
+            </span>
+          </div>
 
-      <MonacoJavaEditor value={code} onChange={update} />
+          <MonacoJavaEditor value={active.content} onChange={update} path={active.path} />
+        </div>
+      </div>
 
       {/* コンソール（たためる） */}
       <div
         className={`flex shrink-0 flex-col border-t border-white/10 bg-tile-1 text-white ${
-          consoleOpen ? "h-[42%] min-h-[170px]" : ""
+          consoleOpen ? (tab === "interactive" && interactive === "othello" ? "h-[62%] min-h-[340px]" : "h-[42%] min-h-[170px]") : ""
         }`}
       >
         <div className={`flex flex-wrap items-center justify-between gap-2 px-3 ${consoleOpen ? "pt-2" : "py-1.5"}`}>
           <div className="flex gap-1" role="tablist">
             {(
               [
+                ...(interactive ? ([["interactive", "対話"]] as const) : []),
                 ["output", "出力"],
-                ["tests", results ? `テスト結果 ${passed}/${results.length}` : "テスト結果"],
+                ["tests", results ? `${open ? "確認結果" : "テスト結果"} ${passed}/${results.length}` : open ? "確認結果" : "テスト結果"],
               ] as const
             ).map(([key, label]) => (
               <button
@@ -294,8 +415,15 @@ export function CodePane({
           </div>
         )}
 
+        {/* 対話は、タブを切り替えても動かしているプログラムを止めないよう、隠すだけにする */}
+        {interactive && (
+          <div className={`min-h-0 flex-1 flex-col px-4 py-3 ${consoleOpen && tab === "interactive" ? "flex" : "hidden"}`} role="tabpanel">
+            <InteractivePanel lessonId={lessonId} questionNo={questionNo} content={content} variant={interactive} />
+          </div>
+        )}
+
         <div
-          className={`min-h-0 flex-1 overflow-auto px-4 py-3 font-mono text-[12.5px] leading-[1.7] ${consoleOpen ? "" : "hidden"}`}
+          className={`min-h-0 flex-1 overflow-auto px-4 py-3 font-mono text-[12.5px] leading-[1.7] ${consoleOpen && tab !== "interactive" ? "" : "hidden"}`}
           role="tabpanel"
         >
           {running ? (
@@ -313,12 +441,21 @@ export function CodePane({
             )
           ) : currentGrade ? (
             currentGrade.compile.ok ? (
-              <GradeView results={currentGrade.results} />
+              <>
+                {open && (
+                  <p className="mb-2 font-sans type-caption text-[#8ee59e]">
+                    コンパイルが通りました。提出できます。{currentGrade.results.length > 0 && "下の確認結果は動作の目安です（提出の条件ではありません）。"}
+                  </p>
+                )}
+                <GradeView results={currentGrade.results} />
+              </>
             ) : (
               <CompileError output={currentGrade.compile.output} />
             )
           ) : (
-            <p className="font-sans type-caption text-white/45">「採点する」を押すと、テストケースで実行して自動採点します。</p>
+            <p className="font-sans type-caption text-white/45">
+              {open ? "「確認する」を押すと、コンパイルが通るか（例があれば動作も）確かめます。" : "「採点する」を押すと、テストケースで実行して自動採点します。"}
+            </p>
           )}
         </div>
       </div>

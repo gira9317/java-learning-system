@@ -95,6 +95,10 @@ export function ExerciseWorkspace({
               lessonId={lesson.id}
               questionNo={question.number}
               starter={question.starterCode}
+              starterFiles={question.starterFiles}
+              multiFile={lesson.multi_file}
+              mode={question.mode}
+              interactive={question.interactive}
               initialArgs={question.examples[0]?.args ?? []}
               onGraded={setCodeResults}
               initial={drafts.code?.content ?? (latest.code?.content as CodeContent | undefined)}

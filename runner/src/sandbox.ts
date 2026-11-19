@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { z } from "zod";
 import { EGG_ENV, eggSetup } from "./eggs.js";
 
 // 受講者のコードを、使い捨ての JDK コンテナの中でコンパイル・実行する。
@@ -35,6 +36,29 @@ const SANDBOX_ARGS = [
 ];
 
 export type RunCase = { args: string[]; stdin: string };
+
+/**
+ * Main.java 以外のソースファイル。フォルダは Java の package として扱う（model/Book.java は package model）。
+ * パスはシェルにそのまま埋め込むので、英数字・アンダースコア・スラッシュだけに厳しく絞る。
+ */
+export const SOURCE_PATH = /^(?:[a-z][a-z0-9_]{0,29}\/){0,3}[A-Z][A-Za-z0-9_]{0,59}\.java$/;
+export const filesSchema = z
+  .array(z.object({ path: z.string().regex(SOURCE_PATH).refine((p) => p !== "Main.java"), content: z.string().max(20_000) }))
+  .max(30)
+  .refine((files) => new Set(files.map((f) => f.path.toLowerCase())).size === files.length, "同じパスのファイルがあります")
+  .refine((files) => files.reduce((n, f) => n + f.content.length, 0) <= 100_000, "ファイルが大きすぎます");
+export type SourceFile = z.infer<typeof filesSchema>[number];
+
+/** ファイルをまとめてコンテナへ書き込むシェルスクリプト（中身は base64 にして、どんな文字でも壊れないようにする） */
+function writeFilesScript(files: SourceFile[]) {
+  const lines = ["set -e"];
+  for (const f of files) {
+    const dir = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : "";
+    if (dir) lines.push(`mkdir -p /work/${dir}`);
+    lines.push(`printf '%s' '${Buffer.from(f.content, "utf8").toString("base64")}' | base64 -d > /work/${f.path}`);
+  }
+  return lines.join("\n") + "\n";
+}
 
 export type CaseResult = {
   stdout: string;
@@ -106,7 +130,7 @@ function docker(args: string[], { input, timeoutMs }: { input?: string; timeoutM
 let running = 0;
 const waiting: (() => void)[] = [];
 
-async function acquire() {
+export async function acquire() {
   if (running < CONCURRENCY) {
     running++;
     return;
@@ -115,7 +139,7 @@ async function acquire() {
   running++;
 }
 
-function release() {
+export function release() {
   running--;
   waiting.shift()?.();
 }
@@ -129,55 +153,56 @@ function cleanCompileOutput(text: string) {
   return text.replaceAll("/work/", "");
 }
 
-export async function runJava(code: string, cases: RunCase[]): Promise<RunResult> {
+export type CompileResult = RunResult["compile"];
+
+/** java を起動するコマンド（コンテナの中）。時間制限は timeout で、コンテナの中からかける */
+export function javaCommand(containerId: string, limitSec: number, args: string[]) {
+  return [
+    "exec", "-i", containerId,
+    "timeout", "-s", "KILL", String(limitSec),
+    "java", "-Xmx128m", "-XX:+UseSerialGC", "-XX:TieredStopAtLevel=1",
+    "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8", "-Duser.language=ja",
+    "-cp", "/work", "Main", ...args,
+  ];
+}
+
+export async function killContainer(containerId: string) {
+  await docker(["kill", containerId], { timeoutMs: 10_000 }).catch(() => {});
+}
+
+/**
+ * 何もしないコンテナを起動し、ソースを書き込んでコンパイルする（--rm なので止めると消える）。
+ * コンテナは呼び出し側が killContainer で止める（コンパイルに失敗したときも）。
+ */
+export async function prepare(code: string, files: SourceFile[], lifetimeSec: number): Promise<{ containerId: string; compile: CompileResult }> {
+  const started = await docker(["run", "-d", "--rm", ...SANDBOX_ARGS, IMAGE, "sleep", String(lifetimeSec)], { timeoutMs: 30_000 });
+  if (started.code !== 0) throw new Error(`コンテナを起動できませんでした: ${started.stderr.trim()}`);
+  const containerId = started.stdout.trim();
+  try {
+    return { containerId, compile: await compileIn(containerId, code, files) };
+  } catch (error) {
+    await killContainer(containerId);
+    throw error;
+  }
+}
+
+export async function runJava(code: string, cases: RunCase[], files: SourceFile[] = []): Promise<RunResult> {
   await acquire();
   let containerId: string | null = null;
   try {
-    // 何もしないコンテナを起動しておき、その中でコンパイル・実行する（--rm なので止めると消える）
-    const started = await docker(["run", "-d", "--rm", ...SANDBOX_ARGS, IMAGE, "sleep", "120"], { timeoutMs: 30_000 });
-    if (started.code !== 0) throw new Error(`コンテナを起動できませんでした: ${started.stderr.trim()}`);
-    containerId = started.stdout.trim();
-
-    // コードを書き込む（標準入力で渡す）
-    const written = await docker(["exec", "-i", containerId, "sh", "-c", "cat > /work/Main.java"], {
-      input: code,
-      timeoutMs: 10_000,
-    });
-    if (written.code !== 0) throw new Error(`コードを書き込めませんでした: ${written.stderr.trim()}`);
-
-    // イースターエッグ（eggs.ts）の仕掛けを置く。失敗しても演習には関係ないので、隠しクラスなしで続ける
-    const eggs = eggSetup(code);
-    const placed = await docker(["exec", "-i", containerId, "sh"], { input: eggs.script, timeoutMs: 10_000 });
-    const eggSources = placed.code === 0 ? eggs.sources : [];
-
-    // コンパイル（エラーメッセージは日本語で）。終わったら隠しクラスのソースは消し、.class だけ残す
-    const compileStart = Date.now();
-    const javac = ["javac", "-J-Xmx192m", "-J-Duser.language=ja", "-encoding", "UTF-8", "-d", "/work", "/work/Main.java", ...eggSources];
-    const compiled = await docker(
-      ["exec", containerId, "sh", "-c", `${javac.join(" ")}; status=$?; rm -f ${eggSources.join(" ")}; exit $status`],
-      { timeoutMs: COMPILE_TIMEOUT_MS },
-    );
-    const compile = {
-      ok: compiled.code === 0 && !compiled.timedOut,
-      output: cleanCompileOutput(compiled.timedOut ? "コンパイルが時間内に終わりませんでした" : compiled.stderr + compiled.stdout),
-      durationMs: Date.now() - compileStart,
-    };
+    const prepared = await prepare(code, files, 120);
+    containerId = prepared.containerId;
+    const compile = prepared.compile;
     if (!compile.ok) return { compile, results: [] };
 
     // テストケースごとに実行する。時間制限はコンテナの中（timeout）と外（docker の待ち時間）の両方でかける
     const results: CaseResult[] = [];
     for (const c of cases) {
       const start = Date.now();
-      const r = await docker(
-        [
-          "exec", "-i", containerId,
-          "timeout", "-s", "KILL", String(RUN_TIME_LIMIT_SEC),
-          "java", "-Xmx128m", "-XX:+UseSerialGC", "-XX:TieredStopAtLevel=1",
-          "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8", "-Duser.language=ja",
-          "-cp", "/work", "Main", ...c.args,
-        ],
-        { input: c.stdin, timeoutMs: (RUN_TIME_LIMIT_SEC + 3) * 1000 },
-      );
+      const r = await docker(javaCommand(containerId, RUN_TIME_LIMIT_SEC, c.args), {
+        input: c.stdin,
+        timeoutMs: (RUN_TIME_LIMIT_SEC + 3) * 1000,
+      });
       results.push({
         stdout: r.stdout,
         stderr: r.stderr,
@@ -190,9 +215,40 @@ export async function runJava(code: string, cases: RunCase[]): Promise<RunResult
     }
     return { compile, results };
   } finally {
-    if (containerId) await docker(["kill", containerId], { timeoutMs: 10_000 }).catch(() => {});
+    if (containerId) await killContainer(containerId);
     release();
   }
+}
+
+async function compileIn(containerId: string, code: string, files: SourceFile[]): Promise<CompileResult> {
+  // コードを書き込む（標準入力で渡す）
+  const written = await docker(["exec", "-i", containerId, "sh", "-c", "cat > /work/Main.java"], {
+    input: code,
+    timeoutMs: 10_000,
+  });
+  if (written.code !== 0) throw new Error(`コードを書き込めませんでした: ${written.stderr.trim()}`);
+  if (files.length > 0) {
+    const others = await docker(["exec", "-i", containerId, "sh"], { input: writeFilesScript(files), timeoutMs: 10_000 });
+    if (others.code !== 0) throw new Error(`ファイルを書き込めませんでした: ${others.stderr.trim()}`);
+  }
+
+  // イースターエッグ（eggs.ts）の仕掛けを置く。失敗しても演習には関係ないので、隠しクラスなしで続ける
+  const eggs = eggSetup(code);
+  const placed = await docker(["exec", "-i", containerId, "sh"], { input: eggs.script, timeoutMs: 10_000 });
+  const eggSources = placed.code === 0 ? eggs.sources : [];
+
+  // コンパイル（エラーメッセージは日本語で）。終わったら隠しクラスのソースは消し、.class だけ残す
+  const compileStart = Date.now();
+  const javac = ["javac", "-J-Xmx192m", "-J-Duser.language=ja", "-encoding", "UTF-8", "-d", "/work", "/work/Main.java", ...files.map((f) => `/work/${f.path}`), ...eggSources];
+  const compiled = await docker(
+    ["exec", containerId, "sh", "-c", `${javac.join(" ")}; status=$?; rm -f ${eggSources.join(" ")}; exit $status`],
+    { timeoutMs: COMPILE_TIMEOUT_MS },
+  );
+  return {
+    ok: compiled.code === 0 && !compiled.timedOut,
+    output: cleanCompileOutput(compiled.timedOut ? "コンパイルが時間内に終わりませんでした" : compiled.stderr + compiled.stdout),
+    durationMs: Date.now() - compileStart,
+  };
 }
 
 /** 起動時に、コードを動かすイメージを用意しておく（初回の実行が遅くならないように） */

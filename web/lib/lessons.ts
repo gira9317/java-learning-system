@@ -3,7 +3,9 @@ export type LessonStatus = "completed" | "in-progress" | "locked";
 export type Lesson = {
   id: number;
   number: number;
-  level: "intro" | "core" | "refactor";
+  level: "intro" | "core" | "refactor" | "advanced";
+  /** フォルダ（package）とファイルを作って、複数ファイルでコードを書けるレッスン */
+  multi_file: boolean;
   title: string;
   summary: string;
   minutes: number;

@@ -26,7 +26,25 @@ const lessons = [
   [9, "クラスとオブジェクト", "データと振る舞いをまとめるオブジェクト指向の基礎です。", 60],
   [16, "読みやすいコードと責務の分け方", "命名・早期リターン・責務分割・コメント・オブジェクトへの頼み方を、動くコードの改善で学びます。", 90],
   [10, "例外処理", "try / catch でエラーに備えた堅牢なコードを書きます。", 45],
+  [17, "継承とインターフェース", "支払い方法・給与・通知など、種類ごとに振る舞いが変わる処理を、継承とインターフェースで組み立てます。", 90],
+  [18, "コレクション（List と Map）", "買い物かご・在庫・集計・予約の重複チェックを、List と Map で実装します。", 90],
+  [19, "小さな業務システムを作る", "貸出・会計・勤怠・ToDo・会議室予約を、package に分けたクラスで作ります。", 120],
+  [20, "自由制作", "自動販売機やクイズなど、正解が1つではない課題を、自分で設計して作ります。", 180],
+  [21, "オセロを作る", "盤面の表示から裏返しのルール、コンピュータとの対戦、画面の盤での対戦まで、少しずつ作ります。", 180],
 ] as const;
+
+/** レッスンの種類。intro・refactor・advanced はコードのみ、core はフロー図 → コード */
+function levelOf(id: number) {
+  if (id >= 11 && id <= 15) return "intro";
+  if (id === 16) return "refactor";
+  if (id >= 17) return "advanced";
+  return "core";
+}
+
+/** フォルダ（package）とファイルを作って書けるレッスン（クラス以降） */
+function multiFileOf(id: number) {
+  return id === 9 || id === 10 || id >= 16;
+}
 
 // 開発用アカウント。初期パスワードは共通で、初回サインイン時に変更を求められる
 const INITIAL_PASSWORD = process.env.SEED_INITIAL_PASSWORD ?? "initial-pass";
@@ -38,13 +56,14 @@ const accounts = [
 for (const [i, [id, title, summary, minutes]] of lessons.entries()) {
   await pool.query(
     `
-    INSERT INTO lessons (id, title, summary, minutes, sort_order, level)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO lessons (id, title, summary, minutes, sort_order, level, multi_file)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     ON CONFLICT (id)
     DO UPDATE SET title = EXCLUDED.title, summary = EXCLUDED.summary,
-                  minutes = EXCLUDED.minutes, sort_order = EXCLUDED.sort_order, level = EXCLUDED.level
+                  minutes = EXCLUDED.minutes, sort_order = EXCLUDED.sort_order, level = EXCLUDED.level,
+                  multi_file = EXCLUDED.multi_file
     `,
-    [id, title, summary, minutes, i + 1, id === 16 ? "refactor" : id >= 11 && id <= 15 ? "intro" : "core"],
+    [id, title, summary, minutes, i + 1, levelOf(id), multiFileOf(id)],
   );
 }
 console.log(`レッスン: ${lessons.length} 件`);

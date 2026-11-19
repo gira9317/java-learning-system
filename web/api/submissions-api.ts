@@ -7,7 +7,10 @@ export type SubmissionStatus = "pending" | "approved" | "rejected";
 export type StageStatus = "none" | SubmissionStatus;
 
 export type FlowContent = { nodes: FlowNode[]; edges: FlowEdge[] };
-export type CodeContent = { code: string };
+/** Main.java 以外のソースファイル。フォルダは Java の package（model/Book.java は package model） */
+export type CodeFile = { path: string; content: string };
+/** code は Main.java の中身。files はそれ以外のファイル（複数ファイルのレッスンだけ） */
+export type CodeContent = { code: string; files?: CodeFile[] };
 
 export type Submission = {
   id: string;
@@ -92,7 +95,7 @@ export type GradeCaseResult = {
 };
 
 // POST /lessons/:id/run（コマンドライン引数と標準入力を指定して 1 回動かす）
-export async function runCode(lessonId: number, body: { code: string; args: string[]; stdin: string }, questionNo = 1) {
+export async function runCode(lessonId: number, body: { code: string; files?: CodeFile[]; args: string[]; stdin: string }, questionNo = 1) {
   return request<{ compile: CompileResult; result: RunCaseResult | null }>(`/lessons/${lessonId}/run?question=${questionNo}`, {
     method: "POST",
     body,
@@ -100,9 +103,49 @@ export async function runCode(lessonId: number, body: { code: string; args: stri
 }
 
 // POST /lessons/:id/grade（レッスンのテストケースで採点する）
-export async function gradeCode(lessonId: number, code: string, questionNo = 1) {
+export async function gradeCode(lessonId: number, content: CodeContent, questionNo = 1) {
   return request<{ compile: CompileResult; results: GradeCaseResult[] }>(`/lessons/${lessonId}/grade?question=${questionNo}`, {
     method: "POST",
-    body: { code },
+    body: { code: content.code, files: content.files ?? [] },
+  });
+}
+
+/* ---------- 対話型の実行（人が 1 行入力 → プログラムが応答、を繰り返す） ---------- */
+
+export type SessionOutput = {
+  output: string;
+  /** プログラムが終わった（このあとは入力を送れない） */
+  exited: boolean;
+  exitCode: number | null;
+  /** 出力が多すぎて止めた、または時間切れで止めた */
+  stopped: "output" | "time" | null;
+};
+
+// POST /lessons/:id/sessions（コンパイルして起動し、最初の入力待ちまでの出力を返す）
+export async function startSession(lessonId: number, content: CodeContent, questionNo = 1) {
+  return request<{ compile: CompileResult; sessionId: string | null; first: SessionOutput | null }>(
+    `/lessons/${lessonId}/sessions?question=${questionNo}`,
+    { method: "POST", body: { code: content.code, files: content.files ?? [] } },
+  );
+}
+
+// POST /lessons/:id/sessions/:sessionId/input（1 行送る）
+export async function sendSessionInput(lessonId: number, sessionId: string, line: string, questionNo = 1) {
+  return request<SessionOutput>(`/lessons/${lessonId}/sessions/${sessionId}/input?question=${questionNo}`, {
+    method: "POST",
+    body: { line },
+  });
+}
+
+// POST /lessons/:id/sessions/:sessionId/read（入力は送らずに続きを読む）
+export async function readSessionOutput(lessonId: number, sessionId: string, questionNo = 1) {
+  return request<SessionOutput>(`/lessons/${lessonId}/sessions/${sessionId}/read?question=${questionNo}`, { method: "POST", body: {} });
+}
+
+// DELETE /lessons/:id/sessions/:sessionId（止める）
+export async function stopSession(lessonId: number, sessionId: string, questionNo = 1, options: { keepalive?: boolean } = {}) {
+  return request<{ stopped: boolean }>(`/lessons/${lessonId}/sessions/${sessionId}?question=${questionNo}`, {
+    method: "DELETE",
+    keepalive: options.keepalive,
   });
 }

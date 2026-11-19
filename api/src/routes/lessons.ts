@@ -1,10 +1,11 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { pool } from "../db.js";
 import { getLessonStages } from "../lib/progress.js";
 import { readLessonMaterial } from "../lib/lesson-material.js";
 import { getPublicExercises } from "../lib/exercises.js";
-import { gradeCode, maskHidden, maskHiddenResults, runJava, RunnerUnavailableError, type GradeResult } from "../lib/runner.js";
+import { canSubmitGrade, gradeCode, maskHidden, maskHiddenResults, RunnerBusyError, runJava, RunnerUnavailableError, type GradeResult } from "../lib/runner.js";
+import { closeSession, openSession, ownsSession, readOutput, sendInput } from "../lib/sessions.js";
 import { authMiddleware, requirePasswordChanged } from "../middleware/authMiddleware.js";
 import { rateLimit } from "../middleware/rateLimitMiddleware.js";
 import { lessonIdSchema } from "../schemas/lessons.js";
@@ -14,6 +15,9 @@ import {
   draftKindSchema,
   gradeCodeSchema,
   runCodeSchema,
+  sessionIdSchema,
+  sessionInputSchema,
+  sessionStartSchema,
 } from "../schemas/submissions.js";
 import type { AppEnv } from "../types/auth.js";
 
@@ -21,7 +25,7 @@ const lessons = new Hono<AppEnv>();
 
 // 自分の進捗つきでレッスンを取る。進捗の行がないレッスンは locked
 const SELECT_LESSONS = `
-  SELECT l.id, l.number, l.level, l.title, l.summary, l.minutes,
+  SELECT l.id, l.number, l.level, l.multi_file, l.title, l.summary, l.minutes,
          COALESCE(p.status, 'locked') AS status
   FROM (SELECT lessons.*, ROW_NUMBER() OVER (ORDER BY sort_order, id)::int AS number FROM lessons) l
   LEFT JOIN lesson_progress p
@@ -117,7 +121,7 @@ lessons.get("/:id/submissions", async (c) => {
 });
 
 //下書きの保存（画面を離れても作業途中の内容が消えないよう、エディタが自動で呼ぶ）
-lessons.put("/:id/drafts/:kind", bodyLimit({ maxSize: 100 * 1024 }), async (c) => {
+lessons.put("/:id/drafts/:kind", bodyLimit({ maxSize: 200 * 1024 }), async (c) => {
   const id = lessonIdSchema.safeParse(c.req.param("id"));
   const kind = draftKindSchema.safeParse(c.req.param("kind"));
   if (!id.success || !kind.success) {
@@ -151,7 +155,7 @@ lessons.put("/:id/drafts/:kind", bodyLimit({ maxSize: 100 * 1024 }), async (c) =
 });
 
 //提出（フロー図 or コード）。フロー図が承認されるまで、コードは提出できない
-lessons.post("/:id/submissions", bodyLimit({ maxSize: 100 * 1024 }), async (c) => {
+lessons.post("/:id/submissions", bodyLimit({ maxSize: 200 * 1024 }), async (c) => {
   const id = lessonIdSchema.safeParse(c.req.param("id"));
   const body = createSubmissionSchema.safeParse(await c.req.json().catch(() => null));
   if (!id.success || !body.success) {
@@ -181,11 +185,13 @@ lessons.post("/:id/submissions", bodyLimit({ maxSize: 100 * 1024 }), async (c) =
   let autoResults: unknown[] | null = body.data.autoResults ?? null;
   if (body.data.kind === "code") {
     try {
-      const grade = await gradeCode(id.data, body.data.content.code, c.get("questionNo"));
+      const grade = await gradeCode(id.data, body.data.content.code, c.get("questionNo"), body.data.content.files ?? []);
       if (!grade) return c.json({ message: "この問題の採点設定がないため、提出できません" }, 503);
-      if (!grade.compile.ok || grade.results.length === 0 || !grade.results.every((result) => result.ok)) {
+      if (!canSubmitGrade(grade)) {
         return c.json({
-          message: "全テストに合格してからレビューを依頼してください。提出は保存されていません。",
+          message: grade.mode === "open"
+            ? "コンパイルエラーを直してからレビューを依頼してください。提出は保存されていません。"
+            : "全テストに合格してからレビューを依頼してください。提出は保存されていません。",
           code: "TESTS_FAILED",
           grade: maskHidden(grade),
         }, 422);
@@ -238,7 +244,7 @@ async function checkRunnable(userId: string, lessonId: number) {
 }
 
 //実行（コマンドライン引数と標準入力を指定して 1 回動かす）
-lessons.post("/:id/run", bodyLimit({ maxSize: 100 * 1024 }), async (c) => {
+lessons.post("/:id/run", bodyLimit({ maxSize: 200 * 1024 }), async (c) => {
   const id = lessonIdSchema.safeParse(c.req.param("id"));
   const body = runCodeSchema.safeParse(await c.req.json().catch(() => null));
   if (!id.success || !body.success) {
@@ -248,7 +254,7 @@ lessons.post("/:id/run", bodyLimit({ maxSize: 100 * 1024 }), async (c) => {
   if (problem) return c.json({ message: problem.message }, problem.status);
 
   try {
-    const run = await runJava(body.data.code, [{ args: body.data.args, stdin: body.data.stdin }]);
+    const run = await runJava(body.data.code, [{ args: body.data.args, stdin: body.data.stdin }], body.data.files);
     return c.json({ compile: run.compile, result: run.results[0] ?? null });
   } catch (error) {
     if (error instanceof RunnerUnavailableError) {
@@ -260,7 +266,7 @@ lessons.post("/:id/run", bodyLimit({ maxSize: 100 * 1024 }), async (c) => {
 });
 
 //採点（レッスンのテストケースで動かして、出力を比べる）
-lessons.post("/:id/grade", bodyLimit({ maxSize: 100 * 1024 }), async (c) => {
+lessons.post("/:id/grade", bodyLimit({ maxSize: 200 * 1024 }), async (c) => {
   const id = lessonIdSchema.safeParse(c.req.param("id"));
   const body = gradeCodeSchema.safeParse(await c.req.json().catch(() => null));
   if (!id.success || !body.success) {
@@ -270,7 +276,7 @@ lessons.post("/:id/grade", bodyLimit({ maxSize: 100 * 1024 }), async (c) => {
   if (problem) return c.json({ message: problem.message }, problem.status);
 
   try {
-    const grade = await gradeCode(id.data, body.data.code, c.get("questionNo"));
+    const grade = await gradeCode(id.data, body.data.code, c.get("questionNo"), body.data.files);
     if (!grade) {
       return c.json({ message: "このレッスンにはテストケースがありません" }, 404);
     }
@@ -282,6 +288,79 @@ lessons.post("/:id/grade", bodyLimit({ maxSize: 100 * 1024 }), async (c) => {
     }
     throw error;
   }
+});
+
+/* ---------- 対話型の実行（人が 1 行入力 → プログラムが応答、を繰り返す） ---------- */
+
+const SESSION_INPUT_LIMIT = 300; // 1 人あたり 1 分間に送れる行数
+const runnerError = (c: Context<AppEnv>, error: unknown) => {
+  if (error instanceof RunnerBusyError) return c.json({ message: error.message }, 503);
+  if (error instanceof RunnerUnavailableError) {
+    console.error(error);
+    return c.json({ message: "実行環境に接続できません。しばらくしてからお試しください" }, 503);
+  }
+  throw error;
+};
+
+//始める（コンパイルして起動し、最初の入力待ちまでの出力を返す）。前に動かしていたものは止める
+lessons.post("/:id/sessions", bodyLimit({ maxSize: 200 * 1024 }), async (c) => {
+  const id = lessonIdSchema.safeParse(c.req.param("id"));
+  const body = sessionStartSchema.safeParse(await c.req.json().catch(() => null));
+  if (!id.success || !body.success) {
+    return c.json({ message: "入力内容が正しくありません" }, 400);
+  }
+  const problem = await checkRunnable(c.get("user").id, id.data);
+  if (problem) return c.json({ message: problem.message }, problem.status);
+  try {
+    return c.json(await openSession(c.get("user").id, body.data.code, body.data.files));
+  } catch (error) {
+    return runnerError(c, error);
+  }
+});
+
+//1 行送って、次の入力待ちまでの出力を受け取る
+lessons.post("/:id/sessions/:sessionId/input", bodyLimit({ maxSize: 8 * 1024 }), async (c) => {
+  const sessionId = sessionIdSchema.safeParse(c.req.param("sessionId"));
+  const body = sessionInputSchema.safeParse(await c.req.json().catch(() => null));
+  if (!sessionId.success || !body.success) {
+    return c.json({ message: "入力内容が正しくありません" }, 400);
+  }
+  const userId = c.get("user").id;
+  if (!ownsSession(userId, sessionId.data)) return c.json({ message: "実行は終了しています" }, 404);
+  if (!rateLimit(`session:${userId}`, SESSION_INPUT_LIMIT, 60)) {
+    return c.json({ message: "入力の回数が多すぎます。少し待ってからお試しください" }, 429);
+  }
+  try {
+    const out = await sendInput(sessionId.data, body.data.line);
+    return out ? c.json(out) : c.json({ message: "実行は終了しています" }, 404);
+  } catch (error) {
+    return runnerError(c, error);
+  }
+});
+
+//入力は送らずに、続きの出力を読む（計算が長くて、まだ出力が出ていないとき）
+lessons.post("/:id/sessions/:sessionId/read", async (c) => {
+  const sessionId = sessionIdSchema.safeParse(c.req.param("sessionId"));
+  if (!sessionId.success) return c.json({ message: "入力内容が正しくありません" }, 400);
+  const userId = c.get("user").id;
+  if (!ownsSession(userId, sessionId.data)) return c.json({ message: "実行は終了しています" }, 404);
+  if (!rateLimit(`session:${userId}`, SESSION_INPUT_LIMIT, 60)) {
+    return c.json({ message: "読み取りの回数が多すぎます。少し待ってからお試しください" }, 429);
+  }
+  try {
+    const out = await readOutput(sessionId.data);
+    return out ? c.json(out) : c.json({ message: "実行は終了しています" }, 404);
+  } catch (error) {
+    return runnerError(c, error);
+  }
+});
+
+//止める
+lessons.delete("/:id/sessions/:sessionId", async (c) => {
+  const sessionId = sessionIdSchema.safeParse(c.req.param("sessionId"));
+  if (!sessionId.success) return c.json({ message: "入力内容が正しくありません" }, 400);
+  if (ownsSession(c.get("user").id, sessionId.data)) await closeSession(sessionId.data);
+  return c.json({ stopped: true });
 });
 
 export default lessons;

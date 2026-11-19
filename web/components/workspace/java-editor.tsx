@@ -52,3 +52,20 @@ export function CodeView({ code }: { code: string }) {
     </div>
   );
 }
+
+/** 複数ファイルの提出の表示。Main.java のあとに、ほかのファイルをパスの順に並べる */
+export function CodeFilesView({ code, files = [] }: { code: string; files?: { path: string; content: string }[] }) {
+  if (files.length === 0) return <CodeView code={code} />;
+  const all = [{ path: "Main.java", content: code }, ...[...files].sort((a, b) => a.path.localeCompare(b.path))];
+  return (
+    <div className="space-y-4">
+      <p className="type-fine text-ink-muted-48">ファイル {all.length} 個（フォルダは package）</p>
+      {all.map((f) => (
+        <section key={f.path}>
+          <h3 className="mb-1 font-mono text-[12.5px] text-ink-muted-80">{f.path}</h3>
+          <CodeView code={f.content} />
+        </section>
+      ))}
+    </div>
+  );
+}
